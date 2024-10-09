@@ -6,22 +6,21 @@ namespace Money.Api.Definitions;
 
 public class FilesStorageDefinition : AppDefinition
 {
-    public override bool Enabled => false;
-
     public override void ConfigureServices(WebApplicationBuilder builder)
     {
         IConfigurationSection filesStorage = builder.Configuration.GetSection("FilesStorage");
 
         FilesStorageConfig? filesStorageConfig = filesStorage.Get<FilesStorageConfig>();
+        string? path = filesStorageConfig?.Path;
 
-        if (filesStorageConfig == null || string.IsNullOrEmpty(filesStorageConfig.Path))
+        if (string.IsNullOrWhiteSpace(path))
         {
             throw new ApplicationException("FilesStoragePath is missing");
         }
 
-        if (!Directory.Exists(filesStorageConfig.Path))
+        if (Directory.Exists(path) == false)
         {
-            Directory.CreateDirectory(filesStorageConfig.Path);
+            Directory.CreateDirectory(path);
         }
 
         builder.Services.Configure<FilesStorageConfig>(filesStorage);
