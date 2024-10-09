@@ -1,15 +1,18 @@
 ﻿using Money.Api.Definitions.Base;
+using Money.Api.Middlewares;
 using Money.Business.Configs;
 
 namespace Money.Api.Definitions;
 
 public class FilesStorageDefinition : AppDefinition
 {
+    public override bool Enabled => false;
+
     public override void ConfigureServices(WebApplicationBuilder builder)
     {
-        var filesStorage = builder.Configuration.GetSection("FilesStorage");
+        IConfigurationSection filesStorage = builder.Configuration.GetSection("FilesStorage");
 
-        var filesStorageConfig = filesStorage.Get<FilesStorageConfig>();
+        FilesStorageConfig? filesStorageConfig = filesStorage.Get<FilesStorageConfig>();
 
         if (filesStorageConfig == null || string.IsNullOrEmpty(filesStorageConfig.Path))
         {
@@ -22,5 +25,10 @@ public class FilesStorageDefinition : AppDefinition
         }
 
         builder.Services.Configure<FilesStorageConfig>(filesStorage);
+    }
+
+    public override void ConfigureApplication(WebApplication app)
+    {
+        app.UseMiddleware<FileUploadMiddleware>();
     }
 }
