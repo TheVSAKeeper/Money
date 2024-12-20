@@ -5,6 +5,7 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <RunAOTCompilation>true</RunAOTCompilation>
+        <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     </PropertyGroup>
 
     <ItemGroup>
@@ -32,6 +33,12 @@
     <ItemGroup>
         <ProjectReference Include="..\..\backend\Money.ApiClient\Money.ApiClient.csproj" />
         <ProjectReference Include="..\..\libs\Money.WebAssembly.CoreLib\Money.WebAssembly.CoreLib.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Content Include="..\.dockerignore">
+        <Link>.dockerignore</Link>
+      </Content>
     </ItemGroup>
 
 </Project>
