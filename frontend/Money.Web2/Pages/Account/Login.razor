@@ -1,0 +1,61 @@
+﻿@page "/Account/Login"
+@using Microsoft.AspNetCore.Authorization
+@using Money.Web2.Common
+@attribute [AllowAnonymous]
+
+<PageTitle>Вход</PageTitle>
+
+<FluentGrid Justify="JustifyContent.Center">
+    <FluentGridItem md="12">
+        <FluentLabel Align="Align.Center"
+                     GutterBottom
+                     Typo="Typography.H3">
+            Войти в систему
+        </FluentLabel>
+    </FluentGridItem>
+
+    <FluentGridItem md="6">
+        <EditForm FormName="login"
+                  Model="Input"
+                  OnValidSubmit="LoginUserAsync">
+            <DataAnnotationsValidator />
+            <FluentValidationSummary />
+
+            <FluentLabel Typo="Typography.Body">
+                Пожалуйста, введите свои учетные данные
+            </FluentLabel>
+
+            <FluentGrid>
+                <FluentGridItem md="12">
+                    <FluentTextField
+                        @bind-Value="Input.Email"
+                        Label="Электронная почта"
+                        Placeholder="name@example.com"
+                        AdditionalAttributes="@(new Dictionary<string, object?> { { "autocomplete", "true" }, { "aria-required", "true" } })" />
+                </FluentGridItem>
+                <FluentGridItem md="12">
+                    <FluentTextField
+                        @bind-Value="Input.Password"
+                        TextFieldType="TextFieldType.Password"
+                        Label="Пароль"
+                        Placeholder="пароль"
+                        AdditionalAttributes="@(new Dictionary<string, object?> { { "autocomplete", "current-password" }, { "aria-required", "true" } })" />
+                </FluentGridItem>
+                <FluentGridItem md="12">
+                    <FluentButton Type="ButtonType.Submit"
+                                  Appearance="Appearance.Accent">
+                        Войти
+                    </FluentButton>
+                </FluentGridItem>
+            </FluentGrid>
+        </EditForm>
+
+        <FluentGrid Class="mt-4">
+            <FluentGridItem md="12">
+                <FluentNavLink Href="@(NavigationManager.GetUriWithReturnUrl("Account/Register", ReturnUrl))">
+                    Нет аккаунта? Зарегистрируйтесь
+                </FluentNavLink>
+            </FluentGridItem>
+        </FluentGrid>
+    </FluentGridItem>
+</FluentGrid>

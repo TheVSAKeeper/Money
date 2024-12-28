@@ -1,0 +1,90 @@
+﻿@using Microsoft.FluentUI.AspNetCore.Components.Extensions
+@using Money.Web2.Models
+<FluentCard>
+    <div class="border-b-2 border-solid pa-2"
+                   style="border-color: var(--mud-palette-divider)">
+        <FluentGridItem md="2"
+                 xs="4">
+            <FluentStack>
+                <FluentIcon Value="@(new Icons.Regular.Size16.CalendarToday())"/>
+                <FluentLabel>
+                    @OperationsDay.Date.ToShortDateString()
+                </FluentLabel>
+            </FluentStack>
+        </FluentGridItem>
+
+        <FluentGridItem md="2"
+                 xs="4">
+            <OperationDialog OnSubmit="OnSubmit"
+                             Operation="@(new Operation { Date = OperationsDay.Date, Category = Category.Empty })"
+                             @ref="_dialog">
+                <FluentStack>
+                    @foreach (OperationTypes.Value type in OperationTypes)
+                    {
+                        <FluentButton Color="@type.Color.GetDescription()"
+                                       Disabled="@(_dialog.IsOpen)"
+                                       IconEnd="@(new Icons.Regular.Size16.Add())"
+                                       OnClick="() => _dialog.ToggleOpen(type)"/>
+                    }
+
+
+                    <FluentMenu>
+                        <Virtualize Context="fastOperation"
+                                    Items="FastOperations">
+                            <FluentMenuItem OnClick="() => _dialog.ToggleOpen(fastOperation)">
+                                @fastOperation.Name
+                            </FluentMenuItem>
+                        </Virtualize>
+                    </FluentMenu>
+                </FluentStack>
+            </OperationDialog>
+        </FluentGridItem>
+
+        @foreach (OperationTypes.Value operationType in OperationTypes)
+        {
+            <FluentGridItem md="2"
+                     xs="2">
+                <FluentStack>
+                    <FluentIcon Color="@operationType.Color"
+                             Value="@operationType.Icon" />
+                    <FluentLabel>
+                        @OperationsDay.CalculateSum(operationType).ToString("N0")
+                    </FluentLabel>
+                </FluentStack>
+            </FluentGridItem>
+        }
+    </div>
+    <div Class="pa-2">
+        <FluentStack>
+            @for (int i = 0; i < OperationsDay.Operations.Count; i++)
+            {
+                Operation operation = OperationsDay.Operations[i];
+
+                if (operation.IsDeleted)
+                {
+                    <FluentStack >
+                        <FluentLabel Style="text-decoration: line-through;">
+                            @operation.Sum.ToString("N0") - @operation.Category.Name - @operation.Comment
+                        </FluentLabel>
+                        <FluentSpacer />
+                        <FluentButton OnClick="() => OnRestore.InvokeAsync(operation)">
+                            Восстановить
+                        </FluentButton>
+                    </FluentStack>
+                }
+                else
+                {
+                    <OperationItem @key="operation"
+                                   OnDelete="() => OnDelete.InvokeAsync(operation)"
+                                   OnEdit="OnEdit"
+                                   Operation="@operation" />
+
+                    if (Settings.ShowDividers && i != OperationsDay.Operations.Count - 1)
+                    {
+                        <FluentDivider />
+                    }
+                }
+            }
+        </FluentStack>
+    </div>
+</FluentCard>

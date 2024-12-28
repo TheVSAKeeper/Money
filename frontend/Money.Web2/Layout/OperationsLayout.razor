@@ -1,0 +1,31 @@
+﻿@using Money.Web2.Components.Operations
+@using Money.Web2.Models
+@inherits LayoutComponentBase
+
+<FluentBodyContent>
+    <OperationsFilter @ref="_operationsFilter" />
+
+    @if (_operationsFilter == null)
+    {
+
+    }
+    else
+    {
+        <CascadingValue Value="_operationsFilter">
+            @Body
+        </CascadingValue>
+
+        @*
+            @PeriodString
+
+            @foreach ((OperationTypes.Value? type, decimal amount) in Operations)
+            {
+                @amount.ToString("N0")
+            }
+
+
+       *@
+
+    }
+
+</FluentBodyContent>

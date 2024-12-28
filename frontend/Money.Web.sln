@@ -9,6 +9,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Money.ApiClient", "..\backe
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Money.WebAssembly.CoreLib", "..\libs\Money.WebAssembly.CoreLib\Money.WebAssembly.CoreLib.csproj", "{0AB45AF6-7602-485D-979C-1BB8CA8101F4}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Money.Web2", "Money.Web2\Money.Web2.csproj", "{EB3C468A-7246-4CF2-803A-F324DBE3C176}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{0AB45AF6-7602-485D-979C-1BB8CA8101F4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0AB45AF6-7602-485D-979C-1BB8CA8101F4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0AB45AF6-7602-485D-979C-1BB8CA8101F4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EB3C468A-7246-4CF2-803A-F324DBE3C176}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EB3C468A-7246-4CF2-803A-F324DBE3C176}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EB3C468A-7246-4CF2-803A-F324DBE3C176}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EB3C468A-7246-4CF2-803A-F324DBE3C176}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

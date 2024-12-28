@@ -1,0 +1,31 @@
+﻿<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(App).Assembly">
+        <Found Context="routeData">
+            <AuthorizeRouteView DefaultLayout="@typeof(MainLayout)"
+                                RouteData="@routeData">
+                <NotAuthorized>
+                    @if (context.User.Identity?.IsAuthenticated == true)
+                    {
+                        <FluentMessageBar Intent="MessageIntent.Error">
+                            Извините, но у вас нет доступа к этой странице.
+                            Пожалуйста, свяжитесь с администратором, если вы считаете, что это ошибка.
+                        </FluentMessageBar>
+                    }
+                    else
+                    {
+                        <RedirectToLogin />
+                    }
+                </NotAuthorized>
+            </AuthorizeRouteView>
+        </Found>
+        <NotFound>
+            <PageTitle>Страница не найдена</PageTitle>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <FluentMessageBar Intent="MessageIntent.Warning">
+                    Извините, но мы не можем найти запрашиваемую страницу.
+                    Пожалуйста, проверьте адрес или вернитесь на главную страницу.
+                </FluentMessageBar>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>

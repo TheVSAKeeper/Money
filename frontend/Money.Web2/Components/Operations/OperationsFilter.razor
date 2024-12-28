@@ -1,0 +1,170 @@
+﻿@using Money.Web2.Models
+<div class="pa-2">
+    <FluentGrid Spacing="2">
+        <FluentGridItem md="6"
+                 xs="12">
+            <FluentStack >
+
+                    <FluentButton Disabled="@(SelectedRange == null)"
+                                   IconEnd="@(new Icons.Regular.Size16.ChevronLeft())"
+                                   OnClick="DecrementDateRangeAsync"
+                                    />
+
+                @*
+                <mudtogglegroup Color="Color.Tertiary"
+                                SelectionMode="SelectionMode.ToggleSelection"
+                                T="DateInterval?"
+                                Value="SelectedRange"
+                                ValueChanged="@(OnDateIntervalChanged)">
+                    @foreach (DateInterval interval in DateIntervals)
+                    {
+                        <mudtoggleitem Value="interval">@interval.DisplayName</mudtoggleitem>
+                    }
+                </mudtogglegroup>
+                *@
+
+
+                    <FluentButton
+                                   Disabled="@(SelectedRange == null)"
+                                   IconEnd="@(new Icons.Regular.Size16.ChevronRight())"
+                                   OnClick="IncrementDateRangeAsync" />
+
+            </FluentStack>
+        </FluentGridItem>
+        <FluentGridItem md="6"
+                 xs="12">
+            <FluentStack>
+                @*@if (_showDateRange)
+                {
+                    <muddaterangepicker Adornment="Adornment.Start"
+                                        AdornmentColor="Color.Tertiary"
+                                        @bind-DateRange="@DateRange"
+                                        Clearable
+                                        Color="Color.Tertiary"
+                                        DateFormat="dd.MM.yyyy"
+                                        Editable
+                                        Label="Диапазон дат"
+                                        Mask="@(new DateMask("dd.MM.yyyy"))"
+                                        PickerVariant="PickerVariant.Inline"
+                                        Rounded
+                                        ShowWeekNumbers />
+                }
+                else
+                {
+                    <muddatepicker Adornment="Adornment.Start"
+                                   AdornmentColor="Color.Tertiary"
+                                   AnchorOrigin="Origin.BottomLeft"
+                                   @bind-Date="@DateRange.Start"
+                                   Clearable
+                                   Color="Color.Tertiary"
+                                   DateFormat="dd.MM.yyyy"
+                                   Editable
+                                   Label="Дата с"
+                                   Mask="@(new DateMask("dd.MM.yyyy"))"
+                                   MaxDate="@DateRange.End" />
+
+                    <muddatepicker Adornment="Adornment.Start"
+                                   AdornmentColor="Color.Tertiary"
+                                   AnchorOrigin="Origin.BottomRight"
+                                   @bind-Date="@DateRange.End"
+                                   Clearable
+                                   Color="Color.Tertiary"
+                                   DateFormat="dd.MM.yyyy"
+                                   Editable
+                                   Label="Дата по"
+                                   Mask="@(new DateMask("dd.MM.yyyy"))"
+                                   MinDate="@DateRange.Start" />
+                }
+
+                <mudiconbutton Color="Color.Tertiary"
+                               Icon="@Icons.Material.Rounded.SwapHoriz"
+                               OnClick="() => _showDateRange = !_showDateRange"
+                               Size="Size.Small" />*@
+            </FluentStack>
+        </FluentGridItem>
+        <FluentGridItem md="6"
+                 xs="12">
+            @*<mudautocomplete Adornment="Adornment.Start"
+                             AdornmentColor="Color.Tertiary"
+                             AdornmentIcon="@Icons.Material.Rounded.Place"
+                             @bind-Value="Place"
+                             Clearable
+                             CoerceText="false"
+                             CoerceValue
+                             Counter="0"
+                             DebounceInterval="350"
+                             Immediate
+                             Label="Место"
+                             ResetValueOnEmptyText="false"
+                             SearchFunc="SearchPlaceAsync"
+                             SelectValueOnTab
+                             ShowProgressIndicator />*@
+        </FluentGridItem>
+        <FluentGridItem md="6"
+                 xs="12">
+            @*
+            <categoryselector @ref="_categorySelector" />
+        *@
+        </FluentGridItem>
+        <FluentGridItem md="6"
+                 xs="12">
+            @*<FluentLabelfield Adornment="Adornment.Start"
+                          AdornmentColor="Color.Tertiary"
+                          AdornmentIcon="@Icons.Material.Rounded.Comment"
+                          AutoGrow
+                          @bind-Value="Comment"
+                          Clearable
+                          Immediate
+                          Label="Комментарий" />*@
+        </FluentGridItem>
+        <FluentGridItem md="6"
+                 xs="12">
+            <FluentStack AlignItems="AlignItems.Baseline"
+                      Row>
+                @*<mudtooltip Text="Очистить все фильтры">
+                    <mudiconbutton Color="Color.Tertiary"
+                                   Icon="@Icons.Material.Rounded.DeleteSweep"
+                                   OnClick="ResetAsync"
+                                   Size="Size.Medium"
+                                   Variant="Variant.Filled" />
+                </mudtooltip>*@
+                    <FluentButton IconEnd="@(new Icons.Regular.Size16.Wand())"
+                                  OnClick="OnToggledChanged" />
+
+                @*<FluentStack Row
+                          AlignItems="AlignItems.Baseline">
+                    <mudtooltip
+                        Text="@(_showChangeCategorySelector ? "Отменить перенос" : "Перекинуть все отображённые на странице операции в выбранную категорию")">
+                        <mudtoggleiconbutton Color="Color.Tertiary"
+                                             Icon="@Icons.Material.Rounded.MoveToInbox"
+                                             Size="Size.Medium"
+                                             @bind-Toggled="_showChangeCategorySelector"
+                                             ToggledIcon="@Icons.Material.Rounded.Close"
+                                             ToggledVariant="Variant.Outlined"
+                                             Variant="Variant.Filled" />
+                    </mudtooltip>
+
+                    @if (_showChangeCategorySelector)
+                    {
+                        <categoryselector @ref="_changeCategorySelector"
+                                          SelectionMode="SelectionMode.SingleSelection" />
+
+                        <mudtooltip Text="Подтвердить перенос">
+                            <mudiconbutton Color="Color.Tertiary"
+                                           Disabled="@(_changeCategorySelector?.SelectedCategory == null)"
+                                           Icon="@Icons.Material.Rounded.Check"
+                                           OnClick="TransferOperationsAsync"
+                                           Size="Size.Medium"
+                                           Variant="Variant.Filled" />
+                        </mudtooltip>
+                    }
+                </FluentStack>*@
+                <FluentSpacer />
+                <FluentButton IconEnd="@(new Icons.Regular.Size16.Search())"
+                           OnClick="SearchAsync">
+                    Найти
+                </FluentButton>
+            </FluentStack>
+        </FluentGridItem>
+    </FluentGrid>
+</div>

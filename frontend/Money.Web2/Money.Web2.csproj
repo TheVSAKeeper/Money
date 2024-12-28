@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <ServiceWorkerAssetsManifest>service-worker-assets.js</ServiceWorkerAssetsManifest>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Blazored.LocalStorage" Version="4.5.0" />
+        <PackageReference Include="ChartJs.Blazor.Fork" Version="2.0.2" />
+        <PackageReference Include="CSharpFunctionalExtensions" Version="3.4.0" />
+        <PackageReference Include="CSharpFunctionalExtensions.Analyzers" Version="1.4.1">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="9.0.0" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="9.0.0" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Authentication" Version="9.0.0" />
+        <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.0" />
+        <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components" Version="4.11.0" />
+        <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components.Icons" Version="4.11.0" />
+        <PackageReference Include="NCalc.DependencyInjection" Version="5.3.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\backend\Money.ApiClient\Money.ApiClient.csproj" />
+        <ProjectReference Include="..\..\libs\Money.WebAssembly.CoreLib\Money.WebAssembly.CoreLib.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ServiceWorker Include="wwwroot\service-worker.js" PublishedContent="wwwroot\service-worker.published.js" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <AdditionalFiles Include="Components\Operations\OperationDialog.razor" />
+        <AdditionalFiles Include="Components\Operations\OperationItem.razor" />
+        <AdditionalFiles Include="Components\Operations\OperationsDayCard.razor" />
+        <AdditionalFiles Include="Components\Operations\OperationsFilter.razor" />
+        <AdditionalFiles Include="Pages\Account\AccessDenied.razor" />
+        <AdditionalFiles Include="Pages\Account\InvalidUser.razor" />
+        <AdditionalFiles Include="Pages\Account\Lockout.razor" />
+        <AdditionalFiles Include="Pages\Account\Login.razor" />
+        <AdditionalFiles Include="Pages\Account\Logout.razor" />
+        <AdditionalFiles Include="Pages\Operations\ListOperations.razor" />
+        <AdditionalFiles Include="Pages\Operations\_Imports.razor" />
+    </ItemGroup>
+
+</Project>

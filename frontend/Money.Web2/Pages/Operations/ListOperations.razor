@@ -1,0 +1,72 @@
+﻿@page "/operations"
+@using Money.Web2.Models
+@using Money.Web2.Components.Operations
+@inherits Money.Web2.Components.Operations.OperationComponent
+@layout OperationsLayout
+
+<PageTitle>Операции</PageTitle>
+
+<FluentStack Orientation="Orientation.Vertical">
+    <CascadingValue IsFixed="true"
+                    Value="_categories">
+        <FluentGridItem>
+            <OperationDialog OnSubmit="AddNewOperation"
+                             Operation="@(new Operation { Date = DateTime.Now, Category = Category.Empty })"
+                             @ref="_dialog">
+                <FluentStack >
+                    @foreach (OperationTypes.Value type in OperationTypes.Values)
+                    {
+                            <FluentButton Color="type.Color"
+                                       Disabled="_dialog.IsOpen"
+                                       EndIcon="@type.Icon"
+                                       OnClick="() => _dialog.ToggleOpen(type)"
+                                       Size="Size.Small"
+                                       Variant="Variant.Filled">
+                                @type.AddText
+                            </FluentButton>
+                    }
+                    @if (_fastOperations != null)
+                    {
+                        @*<mudtooltip Text="Быстрое добавление">
+                            <mudmenu AnchorOrigin="Origin.BottomCenter"
+                                     Color="Color.Info"
+                                     Dense
+                                     Disabled="_dialog.IsOpen"
+                                     EndIcon="@Icons.Material.Rounded.Add"
+                                     FullWidth
+                                     Label="Быстрое добавление"
+                                     MaxHeight="500"
+                                     Size="Size.Small"
+                                     TransformOrigin="Origin.TopCenter"
+                                     Variant="Variant.Filled">
+                                @foreach (FastOperation fastOperation in _fastOperations)
+                                {
+                                    <mudmenuitem OnClick="() => _dialog.ToggleOpen(fastOperation)">@fastOperation.Name</mudmenuitem>
+                                }
+                            </mudmenu>
+                        </mudtooltip>*@
+                    }
+                </FluentStack>
+            </OperationDialog>
+        </FluentGridItem>
+        @if (_operationsDays != null && _operationsDays.Count != 0)
+        {
+            <Virtualize Context="operationsDay"
+                        Items="_operationsDays">
+                <OperationsDayCard FastOperations="_fastOperations"
+                                   @key="operationsDay"
+                                   OnAddOperation="operationsDay.AddAction"
+                                   OnCanDelete="DeleteDay"
+                                   OnDelete="Delete"
+                                   OnRestore="Restore"
+                                   OperationsDay="operationsDay"
+                                   OperationTypes="OperationTypes.Values" />
+            </Virtualize>
+        }
+    </CascadingValue>
+</FluentStack>
+@*<mudscrolltotop>
+    <mudfab Color="Color.Tertiary"
+            Size="Size.Small"
+            StartIcon="@Icons.Material.Filled.ArrowCircleUp" />
+</mudscrolltotop>*@

@@ -1,0 +1,48 @@
+﻿@using Microsoft.FluentUI.AspNetCore.Components.Icons.Regular
+<FluentStack Orientation="Orientation.Vertical">
+    <FluentStack Orientation="Orientation.Horizontal">
+        <FluentIcon Color="@Category.OperationType.Color"
+                    Value="@Category.OperationType.Icon" />
+        <OperationDialog OnSubmit="OnEdit"
+                         Operation="@Operation"
+                         @ref="_dialog">
+            <FluentButton IconEnd="@(new Size16.Edit())"
+                          OnClick="() => _dialog.ToggleOpen()" />
+        </OperationDialog>
+    </FluentStack>
+
+    <FluentGridItem md="1"
+                    xs="2">
+        <FluentLabel>
+            @Operation.Sum.ToString("N0")
+        </FluentLabel>
+    </FluentGridItem>
+    <FluentGridItem md="3"
+                    xs="9">
+        <FluentLabel title="@Category.Name">
+            @Category.Name
+        </FluentLabel>
+    </FluentGridItem>
+    <FluentGridItem md="3"
+                    xs="5">
+        <FluentLabel title="@Operation.Place">
+            @Operation.Place
+        </FluentLabel>
+    </FluentGridItem>
+    @if (Operation.CreatedTaskId != null)
+    {
+        <FluentGridItem xs="1">
+            <FluentIcon Value="@(new Size16.ClipboardTask())"
+                     Title="Создано регулярной задачей" />
+        </FluentGridItem>
+    }
+    <FluentGridItem md="4"
+                    xs="6">
+        <FluentLabel>
+            @Operation.Comment
+        </FluentLabel>
+    </FluentGridItem>
+    <FluentSpacer />
+    <FluentButton IconEnd="@(new Size16.Delete())"
+                   OnClick="() => OnDelete.InvokeAsync(Operation)"/>
+</FluentStack>

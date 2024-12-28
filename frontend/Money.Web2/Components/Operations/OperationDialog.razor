@@ -1,0 +1,63 @@
+﻿@using Money.Web2.Models
+@if (ChildContent != null)
+{
+    @ChildContent
+}
+
+<FluentPopover Class="mt-4 mx-4 pa-4"
+               @bind-Open="IsOpen"
+               Style="max-width: 600px">
+    <EditForm Model="@Input"
+              OnValidSubmit="SubmitAsync">
+        <DataAnnotationsValidator />
+
+        <FluentGrid>
+            <FluentGridItem md="6"
+                            xs="12">
+                <SmartSum @ref="_smartSum"
+                          IsAutoFocus="IsAutoFocus"
+                          GetInitialSum="() => _sum" />
+            </FluentGridItem>
+            <FluentGridItem md="6"
+                            xs="12">
+                <FluentDatePicker @bind-Value="Input.Date"
+                                  Label="Дата"/>
+            </FluentGridItem>
+            <FluentGridItem md="6"
+                            xs="12">
+                <FluentAutocomplete TOption="Category"
+                                    @bind-SelectedOption="Input.Category"
+                                    AutoComplete="off"
+                                    Label="Категория"
+                                    OptionText="@(item => item.Name)"
+                                    SelectValueOnTab />
+            </FluentGridItem>
+            <FluentGridItem md="6"
+                            xs="12">
+                <FluentAutocomplete @bind-Value="Input.Place"
+                                    TOption="string?"
+                                    Immediate
+                                    Label="Место"
+                                    SelectValueOnTab />
+            </FluentGridItem>
+            <FluentGridItem md="12"
+                            xs="12">
+                <FluentTextArea @bind-Value="Input.Comment"
+                                Resize="TextAreaResize.Vertical"
+                                 Label="Комментарий" />
+            </FluentGridItem>
+        </FluentGrid>
+
+        <FluentStack Class="mt-3">
+            <FluentButton Color="Color.Error"
+                          OnClick="() => ToggleOpen()">
+                Закрыть
+            </FluentButton>
+            <FluentButton Type="ButtonType.Submit"
+                          Color="Color.Tertiary"
+                          Appearance="Appearance.Filled">
+                Сохранить
+            </FluentButton>
+        </FluentStack>
+    </EditForm>
+</FluentPopover>

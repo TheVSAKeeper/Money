@@ -1,8 +1,12 @@
 ﻿using Blazored.LocalStorage;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using Money.ApiClient;
+using Money.Web2.Common;
+using Money.Web2.Models;
+using Money.Web2.Services;
 
-namespace Money.Web.Components.Operations;
+namespace Money.Web2.Components.Operations;
 
 public partial class OperationsFilter
 {
@@ -14,12 +18,13 @@ public partial class OperationsFilter
         new("Год", "ий год", time => time.StartOfYear(), time => time.EndOfYear(), (time, direction) => time.AddYears(direction)),
     ];
 
-    private CategorySelector? _categorySelector;
-    private CategorySelector? _changeCategorySelector;
+    private readonly bool _showDateRange = true;
+
+    /*private CategorySelector? _categorySelector;
+    private CategorySelector? _changeCategorySelector;*/
     private List<Operation>? _operations;
 
     private bool _showZeroDays;
-    private bool _showDateRange = true;
     private bool _showChangeCategorySelector;
 
     public event EventHandler<OperationSearchEventArgs>? OnSearch;
@@ -48,11 +53,11 @@ public partial class OperationsFilter
 
         OperationClient.OperationFilterDto filter = new()
         {
-            CategoryIds = _categorySelector?.GetSelectedCategories(),
+            //CategoryIds = _categorySelector?.GetSelectedCategories(),
             Comment = Comment,
             Place = Place,
-            DateFrom = DateRange.Start,
-            DateTo = DateRange.End?.AddDays(1),
+            //DateFrom = DateTime.Now.AddYears(-1),
+            //DateTo = DateTime.Now.AddYears(1),
         };
 
         ApiClientResponse<OperationClient.Operation[]> apiOperations = await MoneyClient.Operation.Get(filter);
@@ -146,7 +151,7 @@ public partial class OperationsFilter
     {
         Comment = null;
         Place = null;
-        _categorySelector?.Reset();
+        //_categorySelector?.Reset();
         return SearchAsync();
     }
 
@@ -162,7 +167,7 @@ public partial class OperationsFilter
 
     private async Task TransferOperationsAsync()
     {
-        if (_changeCategorySelector is not { SelectedCategory.Id: not null } || _operations == null)
+        /*if (_changeCategorySelector is not { SelectedCategory.Id: not null } || _operations == null)
         {
             return;
         }
@@ -177,12 +182,12 @@ public partial class OperationsFilter
         _changeCategorySelector.Reset();
         _showChangeCategorySelector = false;
 
-        await SearchAsync();
+        await SearchAsync();*/
     }
 
-    /*private async Task OnToggledChanged(bool toggled)
+    /*private async Task OnToggledChanged(MouseEventArgs mouseEventArgs)
     {
-        _showZeroDays = toggled;
+        _showZeroDays = !_showZeroDays;
 
         await Task.Run(() => OnSearch?.Invoke(this, new OperationSearchEventArgs
         {
@@ -195,9 +200,10 @@ public partial class OperationsFilter
     }*/
 
     // Для проверки быстродействия
-    private void OnToggledChanged(bool toggled)
+
+    private void OnToggledChanged(MouseEventArgs mouseEventArgs)
     {
-        _showZeroDays = toggled;
+        _showZeroDays = !_showZeroDays;
 
         OnSearch?.Invoke(this, new OperationSearchEventArgs
         {

@@ -1,0 +1,15 @@
+﻿@if (_isNumericSumVisible)
+{
+    <FluentNumberField AutoFocus="IsAutoFocus"
+                       @bind-Value="Sum"
+                       Immediate
+                       Label="Сумма" />
+}
+else
+{
+    <FluentTextField AutoFocus
+                     @bind-Value="_calculationSum"
+                     Immediate
+                     Label="Сумма"
+                     @onblur="ToggleSumFieldAsync" />
+}

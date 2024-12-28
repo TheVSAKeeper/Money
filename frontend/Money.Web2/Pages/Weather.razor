@@ -1,0 +1,60 @@
+﻿@page "/weather"
+@inject HttpClient Http
+
+<PageTitle>Weather</PageTitle>
+
+<h1>Weather</h1>
+
+<p>This component demonstrates fetching data from the server.</p>
+
+@if (forecasts == null)
+{
+    <p>
+        <em>Loading...</em>
+    </p>
+}
+else
+{
+    <FluentDataGrid GridTemplateColumns="1fr 1fr 1fr 2fr"
+                    Id="weathergrid"
+                    Items="@forecasts"
+                    TGridItem=WeatherForecast>
+        <PropertyColumn Align="Align.Start"
+                        Property="@(c => c!.Date)"
+                        Sortable="true"
+                        Title="Date" />
+        <PropertyColumn Align="Align.Center"
+                        Property="@(c => c!.TemperatureC)"
+                        Sortable="true"
+                        Title="Temp. (C)" />
+        <PropertyColumn Align="Align.Center"
+                        Property="@(c => c!.TemperatureF)"
+                        Sortable="true"
+                        Title="Temp. (F)" />
+        <PropertyColumn Align="Align.End"
+                        Property="@(c => c!.Summary)"
+                        Sortable="true"
+                        Title="Summary" />
+    </FluentDataGrid>
+}
+
+@code {
+    private IQueryable<WeatherForecast>? forecasts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        forecasts = (await Http.GetFromJsonAsync<List<WeatherForecast>>("sample-data/weather.json"))!.AsQueryable();
+    }
+
+    public class WeatherForecast
+    {
+        public DateOnly Date { get; set; }
+
+        public int TemperatureC { get; set; }
+
+        public string? Summary { get; set; }
+
+        public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+    }
+
+}
