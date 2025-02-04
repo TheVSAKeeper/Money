@@ -44,13 +44,21 @@
     <MudMainContent Class="pt-3 px-8">
         <MudContainer Gutters
                       MaxWidth="MaxWidth.Large">
-            <CascadingValue IsFixed="true"
-                            Value="_appSettings">
-                <CascadingValue IsFixed="true"
-                                Value="_darkModeToggle">
-                    @Body
-                </CascadingValue>
-            </CascadingValue>
+            <ErrorBoundary>
+                <ChildContent>
+                    <CascadingValue IsFixed="true"
+                                    Value="_appSettings">
+                        <CascadingValue IsFixed="true"
+                                        Value="_darkModeToggle">
+                            @Body
+                        </CascadingValue>
+                    </CascadingValue>
+                </ChildContent>
+                <ErrorContent Context="ex">
+                    <p>@ex.Message</p>
+                    <p>@ex.ToString()</p>
+                </ErrorContent>
+            </ErrorBoundary>
         </MudContainer>
     </MudMainContent>
 </MudLayout>

@@ -2,6 +2,8 @@
 
     <PropertyGroup>
         <RunAOTCompilation>true</RunAOTCompilation>
+        <ServiceWorkerAssetsManifest>service-worker-assets.js</ServiceWorkerAssetsManifest>
+        <EmccMaximumHeapSize>268435456</EmccMaximumHeapSize>
     </PropertyGroup>
 
     <ItemGroup>
@@ -24,6 +26,16 @@
     <ItemGroup>
         <ProjectReference Include="..\..\backend\Money.ApiClient\Money.ApiClient.csproj" />
         <ProjectReference Include="..\..\libs\Money.WebAssembly.CoreLib\Money.WebAssembly.CoreLib.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Content Remove="..\..\..\..\..\Users\admin\.nuget\packages\chartjs.blazor.fork\2.0.2\contentFiles\any\netstandard2.1\wwwroot\ChartJsBlazorInterop.js" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ServiceWorker Include="wwwroot\service-worker.js">
+            <PublishedContent>wwwroot\service-worker.published.js</PublishedContent>
+        </ServiceWorker>
     </ItemGroup>
 
 </Project>
