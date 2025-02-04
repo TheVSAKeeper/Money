@@ -8,7 +8,7 @@ using MudBlazor.Services;
 using NCalc.DependencyInjection;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
-var apiUri = new Uri("http://10.0.2.2:1724");
+var apiUri = new Uri("http://10.0.2.2:7124");
 
 builder.AddServiceDefaults();
 builder.RootComponents.Add<App>("#app");
