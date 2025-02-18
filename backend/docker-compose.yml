@@ -1,0 +1,28 @@
+volumes:
+    pgdata:
+
+services:
+    db:
+        container_name: postgres
+        image: postgres:latest
+        environment:
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: RjirfLeyz
+            POSTGRES_DB: money-dev
+            PGPORT: 5432
+        volumes:
+            - pgdata:/var/lib/postgresql/data
+    api:
+        container_name: moneyapi
+        image: thevsakeeper/moneyapi:latest
+        build:
+            context: .
+            dockerfile: Money.Api/Dockerfile
+        environment:
+            - ASPNETCORE_URLS=http://+:8080
+            - ASPNETCORE_ENVIRONMENT=Production
+            - AUTO_MIGRATE=true
+        ports:
+            - "2171:8080"
+        depends_on:
+            -   db

@@ -3,14 +3,11 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Money.ApiClient;
 using Money.Web.Services.Authentication;
-using Money.WebAssembly.CoreLib;
 using MudBlazor.Services;
 using NCalc.DependencyInjection;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
-var apiUri = new Uri("https+http://api/");
-
-builder.AddServiceDefaults();
+var apiUri = new Uri(builder.Configuration["API_URL"] ?? "https://money.keep2space.ru/api/");
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 

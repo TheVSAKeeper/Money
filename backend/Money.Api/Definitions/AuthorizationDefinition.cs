@@ -18,7 +18,7 @@ public class AuthorizationDefinition : AppDefinition
     {
         app.UseCors("AllowSpecificOrigin");
 
-        app.UseHttpsRedirection();
+        //app.UseHttpsRedirection();
         app.UseAuthentication();
         app.UseAuthorization();
     }

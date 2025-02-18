@@ -2,6 +2,9 @@
 
     <PropertyGroup>
         <GenerateDocumentationFile>True</GenerateDocumentationFile>
+        <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+        <UserSecretsId>7de77903-3f8d-4f5d-89fc-b0edebfbd4c7</UserSecretsId>
+        <DockerComposeProjectPath>..\docker-compose.dcproj</DockerComposeProjectPath>
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -23,6 +26,7 @@
         <PackageReference Include="Microsoft.Identity.Web" />
         <PackageReference Include="Microsoft.Identity.Web.DownstreamApi" />
         <PackageReference Include="Microsoft.OpenApi" />
+        <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" />
         <PackageReference Include="NLog.Schema" />
         <PackageReference Include="NLog.Web.AspNetCore" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
@@ -32,7 +36,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\libs\Money.CoreLib\Money.CoreLib.csproj" />
         <ProjectReference Include="..\Money.Business\Money.Business.csproj" />
         <ProjectReference Include="..\Money.Common\Money.Common.csproj" />
         <ProjectReference Include="..\Money.Data\Money.Data.csproj" />

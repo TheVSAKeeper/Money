@@ -39,7 +39,7 @@ public class ApiClientExecutor(MoneyClient apiClient)
 
     private async Task<ApiClientResponse<T>> SendWithBody<T>(HttpMethod method, string uri, object? body = null, CancellationToken token = default)
     {
-        using var requestMessage = new HttpRequestMessage(method, $"{ApiPrefix}{uri}");
+        using var requestMessage = new HttpRequestMessage(method,  $"{ApiPrefix}{uri}");
 
         apiClient.Log($"method: {method}");
         apiClient.Log($"url: {ApiPrefix}{uri}");

@@ -1,13 +1,18 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
 
     <PropertyGroup>
         <ServiceWorkerAssetsManifest>service-worker-assets.js</ServiceWorkerAssetsManifest>
         <EmccMaximumHeapSize>268435456</EmccMaximumHeapSize>
+        <InvariantGlobalization>true</InvariantGlobalization>
+        <BlazorEnableTimeZoneSupport>false</BlazorEnableTimeZoneSupport>
+        <BlazorWebAssemblyPreserveCollationData>false</BlazorWebAssemblyPreserveCollationData>
+        <WasmExceptionHandling>true</WasmExceptionHandling>
+        <WasmSIMD>false</WasmSIMD>
     </PropertyGroup>
 
-    <PropertyGroup Condition="'$(Configuration)'!='DEBUG'">
+  <!--  <PropertyGroup Condition="'$(Configuration)'!='DEBUG'">
         <RunAOTCompilation>true</RunAOTCompilation>
-    </PropertyGroup>
+    </PropertyGroup>-->
 
 
     <ItemGroup>
@@ -29,7 +34,6 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\backend\Money.ApiClient\Money.ApiClient.csproj" />
-        <ProjectReference Include="..\..\libs\Money.WebAssembly.CoreLib\Money.WebAssembly.CoreLib.csproj" />
     </ItemGroup>
 
 </Project>
