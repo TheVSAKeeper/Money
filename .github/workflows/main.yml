@@ -62,82 +62,81 @@ jobs:
       labels: BobGroupWindowsServer
     if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag == 'production' }}
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Setup .NET Core SDK ${{ env.DOTNET_VERSION }}
-      uses: actions/setup-dotnet@v3
-      with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
+      - name: Setup .NET Core SDK ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
-    - name: API Restore dependencies
-      run: dotnet restore ${{ env.API_PROJECT_FILE }}
+      - name: API Restore dependencies
+        run: dotnet restore ${{ env.API_PROJECT_FILE }}
 
-    - name: API Publish
-      run: dotnet publish ${{ env.API_PROJECT_FILE }} -c ${{ github.event.inputs.configuration }} -o ${{ env.API_PUBLISH_FOLDER }}
+      - name: API Publish
+        run: dotnet publish ${{ env.API_PROJECT_FILE }} -c ${{ github.event.inputs.configuration }} -o ${{ env.API_PUBLISH_FOLDER }}
 
-    - name: API Stop IIS Pool 
-      run: |
-        Import-Module WebAdministration
-        $appPool = Get-WebAppPoolState -Name "${{ env.API_POOL_NAME }}"
-        if ($appPool.Value -ne "Stopped") {
-            Stop-WebAppPool -Name "${{ env.API_POOL_NAME }}"
-            Write-Host "AppPool stopped successfully"
-        } else {
-            Write-Host "AppPool already stopped, skipping..."
-        }
-      shell: pwsh
-
-    - name: API Copy new files
-      uses: nick-fields/retry@v3
-      with:
-        timeout_minutes: 5
-        max_attempts: 3
-        command: |
-          Write-Host "Copying files from ${{ env.API_PUBLISH_FOLDER }} to ${{ env.API_SITE_PATH }}"
-          Copy-Item -Path "${{ env.API_PUBLISH_FOLDER }}\*" -Destination "${{ env.API_SITE_PATH }}" -Recurse -Force -Exclude "web.config", "appsettings.json", "nlog.config"
+      - name: API Stop IIS Pool
+        run: |
+          Import-Module WebAdministration
+          $appPool = Get-WebAppPoolState -Name "${{ env.API_POOL_NAME }}"
+          if ($appPool.Value -ne "Stopped") {
+              Stop-WebAppPool -Name "${{ env.API_POOL_NAME }}"
+              Write-Host "AppPool stopped successfully"
+          } else {
+              Write-Host "AppPool already stopped, skipping..."
+          }
         shell: pwsh
 
-    - name: API Start IIS Website
-      run: |
-        Import-Module WebAdministration
-        Start-WebAppPool -Name "${{ env.API_POOL_NAME }}"
-      shell: pwsh
-      
-    - name: Restore workload
-      run: dotnet workload restore ${{ env.WEB_PROJECT_FILE }}
+      - name: API Copy new files
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          command: |
+            Write-Host "Copying files from ${{ env.API_PUBLISH_FOLDER }} to ${{ env.API_SITE_PATH }}"
+            Copy-Item -Path "${{ env.API_PUBLISH_FOLDER }}\*" -Destination "${{ env.API_SITE_PATH }}" -Recurse -Force -Exclude "web.config", "appsettings.json", "nlog.config"
+          shell: pwsh
 
-    - name: WEB Restore dependencies
-      run: dotnet restore ${{ env.WEB_PROJECT_FILE }}
-
-    - name: WEB Publish
-      run: dotnet publish ${{ env.WEB_PROJECT_FILE }} -c ${{ github.event.inputs.configuration }} -o ${{ env.WEB_PUBLISH_FOLDER }}
-
-    - name: WEB Stop IIS Pool 
-      run: |
-        Import-Module WebAdministration
-        $appPool = Get-WebAppPoolState -Name "${{ env.WEB_POOL_NAME }}"
-        if ($appPool.Value -ne "Stopped") {
-            Stop-WebAppPool -Name "${{ env.WEB_POOL_NAME }}"
-            Write-Host "AppPool stopped successfully"
-        } else {
-            Write-Host "AppPool already stopped, skipping..."
-        }
-      shell: pwsh
-
-    - name: WEB Copy new files
-      uses: nick-fields/retry@v3
-      with:
-        timeout_minutes: 5
-        max_attempts: 3
-        command: |
-          Write-Host "Copying files from ${{ env.WEB_PUBLISH_FOLDER }} to ${{ env.WEB_SITE_PATH }}"
-          Copy-Item -Path "${{ env.WEB_PUBLISH_FOLDER }}\*" -Destination "${{ env.WEB_SITE_PATH }}" -Recurse -Force -Exclude "web.config", "appsettings.json", "nlog.config"
+      - name: API Start IIS Website
+        run: |
+          Import-Module WebAdministration
+          Start-WebAppPool -Name "${{ env.API_POOL_NAME }}"
         shell: pwsh
 
-    - name: WEB Start IIS Website
-      run: |
-        Import-Module WebAdministration
-        Start-WebAppPool -Name "${{ env.WEB_POOL_NAME }}"
-      shell: pwsh
+      - name: Restore workload
+        run: dotnet workload restore ${{ env.WEB_PROJECT_FILE }}
 
+      - name: WEB Restore dependencies
+        run: dotnet restore ${{ env.WEB_PROJECT_FILE }}
+
+      - name: WEB Publish
+        run: dotnet publish ${{ env.WEB_PROJECT_FILE }} -c ${{ github.event.inputs.configuration }} -o ${{ env.WEB_PUBLISH_FOLDER }}
+
+      - name: WEB Stop IIS Pool
+        run: |
+          Import-Module WebAdministration
+          $appPool = Get-WebAppPoolState -Name "${{ env.WEB_POOL_NAME }}"
+          if ($appPool.Value -ne "Stopped") {
+              Stop-WebAppPool -Name "${{ env.WEB_POOL_NAME }}"
+              Write-Host "AppPool stopped successfully"
+          } else {
+              Write-Host "AppPool already stopped, skipping..."
+          }
+        shell: pwsh
+
+      - name: WEB Copy new files
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          command: |
+            Write-Host "Copying files from ${{ env.WEB_PUBLISH_FOLDER }} to ${{ env.WEB_SITE_PATH }}"
+            Copy-Item -Path "${{ env.WEB_PUBLISH_FOLDER }}\*" -Destination "${{ env.WEB_SITE_PATH }}" -Recurse -Force -Exclude "web.config", "appsettings.json", "nlog.config"
+          shell: pwsh
+
+      - name: WEB Start IIS Website
+        run: |
+          Import-Module WebAdministration
+          Start-WebAppPool -Name "${{ env.WEB_POOL_NAME }}"
+        shell: pwsh

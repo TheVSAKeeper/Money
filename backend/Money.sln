@@ -27,6 +27,15 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		..\.editorconfig = ..\.editorconfig
 	EndProjectSection
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "workflows", "workflows", "{9C0B69DD-9A23-4ECB-A70E-280929E49E52}"
+	ProjectSection(SolutionItems) = preProject
+		..\.github\workflows\backend.yml = ..\.github\workflows\backend.yml
+		..\.github\workflows\frontend.yml = ..\.github\workflows\frontend.yml
+		..\.github\workflows\integration.yml = ..\.github\workflows\integration.yml
+		..\.github\workflows\main.yml = ..\.github\workflows\main.yml
+		..\.github\workflows\codeql.yml = ..\.github\workflows\codeql.yml
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -68,6 +77,7 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{43C1ECF1-FE0E-4431-BF47-A5A668566114} = {C048BFE0-0921-416E-999C-2DDE4D278C93}
 		{6412D321-7428-4A0F-946B-1C88E2ED524D} = {C048BFE0-0921-416E-999C-2DDE4D278C93}
+		{9C0B69DD-9A23-4ECB-A70E-280929E49E52} = {61BD4C25-7142-4C55-93E8-FAD707C08E68}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {E7847BC1-7435-4940-AAFD-270B882B1486}
