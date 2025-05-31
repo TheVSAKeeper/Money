@@ -8,7 +8,7 @@ namespace Money.Web.Components;
 
 public partial class SmartSum : ComponentBase
 {
-    private static readonly HashSet<char> ValidSpecialCharacters = ['(', ')', '+', '-', '*', '/'];
+    private static readonly HashSet<char> ValidSpecialCharacters = ['(', ')', '+', '-', '*', '/', '.', ','];
 
     private bool _isNumericSumVisible = true;
     private string? _calculationSum = string.Empty;
@@ -48,11 +48,7 @@ public partial class SmartSum : ComponentBase
 
     private async Task<bool> TryUpdateSumAsync()
     {
-        if (_isNumericSumVisible)
-        {
-            return true;
-        }
-
+        var isOk = true;
         decimal? sum = null;
 
         if (_calculationSum != null)
@@ -61,14 +57,16 @@ public partial class SmartSum : ComponentBase
 
             if (sum == null)
             {
-                return false;
+                isOk = false;
             }
         }
 
-        Sum = sum;
-        _calculationSum = Sum?.ToString(CultureInfo.CurrentCulture);
+        if (isOk)
+        {
+            UpdateSum(sum);
+        }
 
-        return true;
+        return isOk;
     }
 
     private void UpdateSum(decimal? sum)
