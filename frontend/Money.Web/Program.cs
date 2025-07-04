@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Money.ApiClient;
 using Money.Web.Services.Authentication;
-using Money.WebAssembly.CoreLib;
 using MudBlazor.Services;
 using MudBlazor.Translations;
 using NCalc.DependencyInjection;
@@ -12,7 +11,6 @@ using System.Globalization;
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 var apiUri = new Uri("https+http://api/");
 
-builder.AddServiceDefaults();
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 

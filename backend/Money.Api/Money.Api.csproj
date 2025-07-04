@@ -32,7 +32,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\libs\Money.CoreLib\Money.CoreLib.csproj" />
         <ProjectReference Include="..\Money.Business\Money.Business.csproj" />
         <ProjectReference Include="..\Money.Common\Money.Common.csproj" />
         <ProjectReference Include="..\Money.Data\Money.Data.csproj" />
