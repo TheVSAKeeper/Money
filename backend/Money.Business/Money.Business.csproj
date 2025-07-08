@@ -1,16 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <OutputType>Library</OutputType>
-    </PropertyGroup>
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
 
-    <ItemGroup>
-        <ProjectReference Include="..\Money.Common\Money.Common.csproj" />
-        <ProjectReference Include="..\Money.Data\Money.Data.csproj" />
-    </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Money.Common\Money.Common.csproj" />
+    <ProjectReference Include="..\Money.Data\Money.Data.csproj" />
+  </ItemGroup>
 
-    <ItemGroup>
-        <PackageReference Include="OpenIddict.Server.AspNetCore" />
-    </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="OpenIddict.Server.AspNetCore" />
+    <PackageReference Include="NLog" />
+    <PackageReference Include="NLog.DiagnosticSource" />
+  </ItemGroup>
 
 </Project>

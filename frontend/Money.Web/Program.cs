@@ -9,7 +9,7 @@ using NCalc.DependencyInjection;
 using System.Globalization;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
-var apiUri = new Uri("https+http://api/");
+var apiUri = new Uri("https://localhost:7124");
 
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");

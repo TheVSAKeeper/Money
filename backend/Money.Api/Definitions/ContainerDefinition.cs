@@ -1,3 +1,5 @@
+using Money.Api.Interceptors;
+using Money.Api.Services;
 using Money.Business;
 
 namespace Money.Api.Definitions;
@@ -22,5 +24,10 @@ public class ContainerDefinition : AppDefinition
         builder.Services.AddScoped<CarsService>();
         builder.Services.AddScoped<CarEventsService>();
         builder.Services.AddSingleton<QueueHolder>();
+
+        builder.Services.AddSingleton<ObservabilityService>();
+        builder.Services.AddScoped<BusinessObservabilityService>();
+
+        builder.Services.AddSingleton<EfCoreBusinessContextInterceptor>();
     }
 }

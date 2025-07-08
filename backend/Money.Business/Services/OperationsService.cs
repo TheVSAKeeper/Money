@@ -7,7 +7,8 @@ public class OperationsService(
     ApplicationDbContext context,
     UsersService usersService,
     CategoriesService categoriesService,
-    PlacesService placesService)
+    PlacesService placesService,
+    BusinessObservabilityService observabilityService)
 {
     public async Task<IEnumerable<Operation>> GetAsync(OperationFilter filter, CancellationToken cancellationToken = default)
     {
@@ -44,27 +45,144 @@ public class OperationsService(
 
     public async Task<int> CreateAsync(Operation model, CancellationToken cancellationToken = default)
     {
-        Validate(model);
+        using var businessSpan = observabilityService.StartEnhancedBusinessSpan("create",
+            "operation",
+            userId: environment.UserId,
+            additionalTags: new()
+            {
+                ["amount"] = model.Sum,
+                ["category_id"] = model.CategoryId,
+                ["place"] = model.Place ?? "unknown",
+                ["date"] = model.Date.ToString("yyyy-MM-dd"),
+            });
 
-        var category = await categoriesService.GetByIdAsync(model.CategoryId, cancellationToken);
-        var operationId = await usersService.GetNextOperationIdAsync(cancellationToken);
-        var placeId = model.PlaceId ?? await placesService.GetPlaceIdAsync(model.Place, cancellationToken);
-
-        var entity = new Data.Entities.Operation
+        try
         {
-            Id = operationId,
-            UserId = environment.UserId,
-            CategoryId = category.Id,
-            Sum = model.Sum,
-            Comment = model.Comment,
-            Date = model.Date,
-            PlaceId = placeId,
-            CreatedTaskId = model.CreatedTaskId,
-        };
+            observabilityService.AddBusinessOperationStartEvent("operation_create", new()
+            {
+                ["amount"] = model.Sum,
+                ["category_id"] = model.CategoryId,
+                ["user_id"] = environment.UserId,
+            });
 
-        await context.Operations.AddAsync(entity, cancellationToken);
-        await context.SaveChangesAsync(cancellationToken);
-        return operationId;
+            observabilityService.EnrichAutomaticSpans("operation_create_started", new()
+            {
+                ["entity_type"] = "operation",
+                ["operation_type"] = "create",
+                ["user_id"] = environment.UserId,
+            });
+
+            using (observabilityService.StartNestedBusinessSpan("validation", "operation"))
+            {
+                observabilityService.AddEventToBothCurrentAndSpan(businessSpan, "ValidationStart");
+
+                Validate(model);
+
+                observabilityService.AddValidationEvent("operation", true);
+                observabilityService.AddEventToBothCurrentAndSpan(businessSpan, "ValidationCompleted");
+            }
+
+            Category category;
+
+            using (var categorySpan = observabilityService.StartNestedBusinessSpan("category_lookup", "operation"))
+            {
+                observabilityService.AddEventToBothCurrentAndSpan(businessSpan, "CategoryLookup");
+
+                category = await categoriesService.GetByIdAsync(model.CategoryId, cancellationToken);
+
+                categorySpan?.SetTag("category.id", category.Id);
+                categorySpan?.SetTag("category.name", category.Name);
+                observabilityService.AddEventToBothCurrentAndSpan(businessSpan, "CategoryLookupCompleted");
+            }
+
+            int operationId;
+
+            using (var idGenerationSpan = observabilityService.StartNestedBusinessSpan("id_generation", "operation"))
+            {
+                observabilityService.AddEventToBothCurrentAndSpan(businessSpan, "GenerateOperationId");
+
+                operationId = await usersService.GetNextOperationIdAsync(cancellationToken);
+
+                idGenerationSpan?.SetTag("generated.operation_id", operationId);
+                observabilityService.AddEventToBothCurrentAndSpan(businessSpan, "OperationIdGenerated");
+            }
+
+            int? placeId;
+
+            using (var placeSpan = observabilityService.StartNestedBusinessSpan("place_lookup", "operation"))
+            {
+                observabilityService.AddEventToBothCurrentAndSpan(businessSpan, "PlaceLookup");
+
+                placeId = model.PlaceId ?? await placesService.GetPlaceIdAsync(model.Place, cancellationToken);
+
+                if (placeId.HasValue)
+                {
+                    placeSpan?.SetTag("place.id", placeId.Value);
+                }
+
+                observabilityService.AddEventToBothCurrentAndSpan(businessSpan, "PlaceLookupCompleted");
+            }
+
+            var entity = new Data.Entities.Operation
+            {
+                Id = operationId,
+                UserId = environment.UserId,
+                CategoryId = category.Id,
+                Sum = model.Sum,
+                Comment = model.Comment,
+                Date = model.Date,
+                PlaceId = placeId,
+                CreatedTaskId = model.CreatedTaskId,
+            };
+
+            using (observabilityService.StartNestedBusinessSpan("database_insert", "operation"))
+            {
+                observabilityService.AddEventToBothCurrentAndSpan(businessSpan, "DatabaseInsert");
+
+                await context.Operations.AddAsync(entity, cancellationToken);
+                await context.SaveChangesAsync(cancellationToken);
+
+                observabilityService.AddDatabaseEvent("INSERT", "operations", 1);
+
+                observabilityService.AddEventToSpan(businessSpan, "DatabaseInsertCompleted", new()
+                {
+                    ["operation_id"] = operationId,
+                    ["records_affected"] = 1,
+                });
+            }
+
+            businessSpan?.SetTag("operation.id", operationId);
+
+            observabilityService.AddBusinessOperationEndEvent("operation_create", true, new()
+            {
+                ["operation_id"] = operationId,
+            });
+
+            observabilityService.AddBusinessOperationEventToSpan(businessSpan, "operation_create", true, new()
+            {
+                ["operation_id"] = operationId,
+                ["processing_duration_ms"] = businessSpan?.Duration.TotalMilliseconds ?? 0,
+            });
+
+            return operationId;
+        }
+        catch (Exception ex)
+        {
+            observabilityService.RecordException(ex);
+
+            observabilityService.AddBusinessOperationEndEvent("operation_create", false, new()
+            {
+                ["error_type"] = ex.GetType().Name,
+            });
+
+            observabilityService.AddBusinessOperationEventToSpan(businessSpan, "operation_create", false, new()
+            {
+                ["error_type"] = ex.GetType().Name,
+                ["error_message"] = ex.Message,
+            });
+
+            throw;
+        }
     }
 
     public async Task UpdateAsync(Operation model, CancellationToken cancellationToken = default)

@@ -9,74 +9,127 @@ public partial class AccountsService(
     RequestEnvironment environment,
     UserManager<ApplicationUser> userManager,
     ApplicationDbContext context,
-    QueueHolder queueHolder)
+    QueueHolder queueHolder,
+    BusinessObservabilityService observabilityService)
 {
     public async Task RegisterAsync(RegisterAccount model, CancellationToken cancellationToken = default)
     {
-        if (UserNameRegex().IsMatch(model.UserName) == false)
-        {
-            throw new EntityExistsException("Извините, но имя пользователя не может содержать служебные символы.");
-        }
+        using var span = observabilityService.StartBusinessOperationSpan("register", "account");
 
-        var user = await userManager.FindByNameAsync(model.UserName);
-
-        if (user != null)
+        try
         {
-            throw new EntityExistsException("Извините, но пользователь с таким именем уже зарегистрирован. Пожалуйста, попробуйте другое имя пользователя.");
-        }
+            span?.SetTag("account.username", model.UserName);
+            span?.SetTag("account.has_email", !string.IsNullOrEmpty(model.Email));
 
-        if (model.Email != null)
-        {
-            user = await userManager.FindByEmailAsync(model.Email);
+            observabilityService.AddBusinessOperationStartEvent("account_registration", new()
+            {
+                ["username"] = model.UserName,
+                ["has_email"] = !string.IsNullOrEmpty(model.Email),
+            });
+
+            observabilityService.AddEvent("UsernameValidation");
+
+            if (UserNameRegex().IsMatch(model.UserName) == false)
+            {
+                observabilityService.AddValidationEvent("username", false, ["Invalid characters in username"]);
+                throw new EntityExistsException("Извините, но имя пользователя не может содержать служебные символы.");
+            }
+
+            observabilityService.AddValidationEvent("username", true);
+
+            observabilityService.AddEvent("CheckExistingUser");
+            var user = await userManager.FindByNameAsync(model.UserName);
 
             if (user != null)
             {
-                if (user.EmailConfirmed)
-                {
-                    throw new EntityExistsException("Извините, но пользователь с таким email уже зарегистрирован. Пожалуйста, попробуйте другоЙ email.");
-                }
-
-                user.Email = null;
-                user.EmailConfirmCode = null;
-                await userManager.UpdateAsync(user);
+                observabilityService.AddEvent("UserAlreadyExists");
+                throw new EntityExistsException("Извините, но пользователь с таким именем уже зарегистрирован. Пожалуйста, попробуйте другое имя пользователя.");
             }
+
+            if (model.Email != null)
+            {
+                observabilityService.AddEvent("CheckExistingEmail");
+                user = await userManager.FindByEmailAsync(model.Email);
+
+                if (user != null)
+                {
+                    if (user.EmailConfirmed)
+                    {
+                        observabilityService.AddEvent("EmailAlreadyConfirmed");
+                        throw new EntityExistsException("Извините, но пользователь с таким email уже зарегистрирован. Пожалуйста, попробуйте другоЙ email.");
+                    }
+
+                    observabilityService.AddEvent("CleanupUnconfirmedEmail");
+                    user.Email = null;
+                    user.EmailConfirmCode = null;
+                    await userManager.UpdateAsync(user);
+                }
+            }
+
+            observabilityService.AddEvent("CreateNewUser");
+
+            user = new()
+            {
+                UserName = model.UserName,
+                Email = model.Email,
+            };
+
+            if (model.Email != null)
+            {
+                observabilityService.AddEvent("GenerateEmailConfirmCode");
+                user.EmailConfirmCode = GetCode(6);
+            }
+
+            observabilityService.AddEvent("CreateUserInIdentity");
+            var result = await userManager.CreateAsync(user, model.Password);
+
+            if (result.Succeeded == false)
+            {
+                var errors = result.Errors.Select(error => error.Description).ToArray();
+                observabilityService.AddValidationEvent("user_creation", false, errors);
+                throw new IncorrectDataException($"Ошибки: {string.Join("; ", errors)}");
+            }
+
+            observabilityService.AddValidationEvent("user_creation", true);
+
+            observabilityService.AddEvent("CreateDomainUser");
+            await AddNewUser(user.Id, cancellationToken);
+
+            if (model.Email != null)
+            {
+                observabilityService.AddEvent("SendConfirmationEmail");
+                SendEmail(user.UserName, model.Email, user.EmailConfirmCode!);
+            }
+
+            observabilityService.AddBusinessOperationEndEvent("account_registration", true, new()
+            {
+                ["user_id"] = user.Id,
+            });
         }
-
-        user = new()
+        catch (Exception ex)
         {
-            UserName = model.UserName,
-            Email = model.Email,
-        };
+            observabilityService.RecordException(ex);
 
-        if (model.Email != null)
-        {
-            user.EmailConfirmCode = GetCode(6);
-        }
+            observabilityService.AddBusinessOperationEndEvent("account_registration", false, new()
+            {
+                ["error_type"] = ex.GetType().Name,
+            });
 
-        var result = await userManager.CreateAsync(user, model.Password);
-
-        if (result.Succeeded == false)
-        {
-            throw new IncorrectDataException($"Ошибки: {string.Join("; ", result.Errors.Select(error => error.Description))}");
-        }
-
-        await AddNewUser(user.Id, cancellationToken);
-
-        if (model.Email != null)
-        {
-            SendEmail(user.UserName, model.Email, user.EmailConfirmCode!);
+            throw;
         }
     }
 
     public async Task ChangePasswordAsync(string currentPassword, string newPassword)
     {
         var user = environment.AuthUser;
+
         if (user == null)
         {
             throw new BusinessException("Извините, но пользователь не указан.");
         }
 
         var domainUser = await context.DomainUsers.SingleAsync(x => x.AuthUserId == user.Id);
+
         if (domainUser.TransporterPassword != null)
         {
             if (!LegacyAuth.Validate(user.UserName!, currentPassword, domainUser.TransporterPassword))
@@ -91,12 +144,12 @@ public partial class AccountsService(
         else
         {
             var result = await userManager.ChangePasswordAsync(user, currentPassword, newPassword);
+
             if (result.Succeeded == false)
             {
                 throw new IncorrectDataException($"Ошибки: {string.Join("; ", result.Errors.Select(error => error.Description))}");
             }
         }
-
     }
 
     public async Task<int> EnsureUserIdAsync(Guid authUserId, CancellationToken cancellationToken = default)
@@ -179,6 +232,9 @@ public partial class AccountsService(
         return result.ToString();
     }
 
+    [GeneratedRegex("^[a-zA-Z0-9_-]+$", RegexOptions.Compiled)]
+    private static partial Regex UserNameRegex();
+
     private void SendEmail(string userName, string email, string confirmCode)
     {
         const string Title = "Подтверждение регистрации";
@@ -201,7 +257,4 @@ public partial class AccountsService(
 
         return domainUser.Id;
     }
-
-    [GeneratedRegex("^[a-zA-Z0-9_-]+$", RegexOptions.Compiled)]
-    private static partial Regex UserNameRegex();
 }

@@ -1,0 +1,94 @@
+services:
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    hostname: grafana
+    user: "472:472"
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/money-api-overview.json
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - GF_FEATURE_TOGGLES_ENABLE=dashboardPreviews,traceqlEditor
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:rw
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:rw
+    restart: unless-stopped
+    depends_on:
+      - loki
+      - tempo
+      - prometheus
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    hostname: prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--storage.tsdb.retention.time=15d"
+      - "--web.enable-lifecycle"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    hostname: loki
+    ports:
+      - "3100:3100"
+    command:
+      - "-config.file=/etc/loki/local-config.yaml"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./observability/loki/loki-config.yml:/etc/loki/local-config.yaml
+      - loki-data:/loki
+    restart: unless-stopped
+
+  tempo:
+    image: grafana/tempo:latest
+    container_name: tempo
+    hostname: tempo
+    user: "10001:10001"
+    ports:
+      - "3200:3200"
+      - "4007:4317"
+    command:
+      - "-config.file=/etc/tempo.yaml"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./observability/tempo/tempo.yml:/etc/tempo.yaml
+      - tempo-data:/var/tempo
+    restart: unless-stopped
+    depends_on:
+      - otel-collector
+
+  otel-collector:
+    image: otel/opentelemetry-collector:latest
+    container_name: otel
+    hostname: otel
+    ports:
+      - "8888:8888"
+      - "8889:8889"
+      - "4317:4317"
+    command:
+      - "--config=/etc/otel-collector.yaml"
+    volumes:
+      - ./observability/otel-collector.yaml:/etc/otel-collector.yaml
+    restart: unless-stopped
+
+volumes:
+  grafana-data:
+  prometheus-data:
+  loki-data:
+  tempo-data:

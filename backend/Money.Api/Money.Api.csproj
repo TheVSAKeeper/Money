@@ -1,40 +1,49 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
-    <PropertyGroup>
-        <GenerateDocumentationFile>True</GenerateDocumentationFile>
-    </PropertyGroup>
+  <PropertyGroup>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
+  </PropertyGroup>
 
-    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
-        <DocumentationFile>bin\Debug\Money.Api.xml</DocumentationFile>
-        <NoWarn>1701;1702;1591</NoWarn>
-    </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <DocumentationFile>bin\Debug\Money.Api.xml</DocumentationFile>
+    <NoWarn>1701;1702;1591</NoWarn>
+  </PropertyGroup>
 
-    <ItemGroup>
-        <PackageReference Include="ClosedXML" />
-        <PackageReference Include="EFCore.NamingConventions" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" NoWarn="NU1605" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" NoWarn="NU1605" />
-        <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
-        <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
-            <PrivateAssets>all</PrivateAssets>
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-        </PackageReference>
-        <PackageReference Include="Microsoft.Extensions.Identity.Core" />
-        <PackageReference Include="Microsoft.Identity.Web" />
-        <PackageReference Include="Microsoft.Identity.Web.DownstreamApi" />
-        <PackageReference Include="Microsoft.OpenApi" />
-        <PackageReference Include="NLog.Schema" />
-        <PackageReference Include="NLog.Web.AspNetCore" />
-        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
-        <PackageReference Include="OpenIddict.AspNetCore" />
-        <PackageReference Include="OpenIddict.EntityFrameworkCore" />
-        <PackageReference Include="Swashbuckle.AspNetCore" />
-    </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="ClosedXML" />
+    <PackageReference Include="EFCore.NamingConventions" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" NoWarn="NU1605" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" NoWarn="NU1605" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Identity.Core" />
+    <PackageReference Include="Microsoft.Identity.Web" />
+    <PackageReference Include="Microsoft.Identity.Web.DownstreamApi" />
+    <PackageReference Include="Microsoft.OpenApi" />
+    <PackageReference Include="NLog.DiagnosticSource" />
+    <PackageReference Include="NLog.Schema" />
+    <PackageReference Include="NLog.Targets.Loki" />
+    <PackageReference Include="NLog.Web.AspNetCore" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="OpenIddict.AspNetCore" />
+    <PackageReference Include="OpenIddict.EntityFrameworkCore" />
+    <PackageReference Include="OpenTelemetry.Exporter.Console" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+    <PackageReference Include="OpenTelemetry.Exporter.Prometheus.AspNetCore" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.EntityFrameworkCore" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
+    <PackageReference Include="Swashbuckle.AspNetCore" />
+  </ItemGroup>
 
-    <ItemGroup>
-        <ProjectReference Include="..\Money.Business\Money.Business.csproj" />
-        <ProjectReference Include="..\Money.Common\Money.Common.csproj" />
-        <ProjectReference Include="..\Money.Data\Money.Data.csproj" />
-    </ItemGroup>
-
+  <ItemGroup>
+    <ProjectReference Include="..\Money.Business\Money.Business.csproj" />
+    <ProjectReference Include="..\Money.Common\Money.Common.csproj" />
+    <ProjectReference Include="..\Money.Data\Money.Data.csproj" />
+  </ItemGroup>
+  
 </Project>

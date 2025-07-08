@@ -8,6 +8,7 @@ public class MiddlewareDefinition : AppDefinition
 
     public override void ConfigureApplication(WebApplication app)
     {
+        app.UseMiddleware<ObservabilityMiddleware>();
         app.UseMiddleware<AuthMiddleware>();
     }
 }
