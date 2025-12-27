@@ -3,13 +3,14 @@
   <PropertyGroup>
     <ServiceWorkerAssetsManifest>service-worker-assets.js</ServiceWorkerAssetsManifest>
     <EmccMaximumHeapSize>268435456</EmccMaximumHeapSize>
-    <BlazorWebAssemblyLoadAllGlobalizationData>true</BlazorWebAssemblyLoadAllGlobalizationData>
+    <HybridGlobalization>true</HybridGlobalization>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)'!='DEBUG'">
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <RunAOTCompilation>true</RunAOTCompilation>
+    <PublishTrimmed>true</PublishTrimmed>
+    <IsTrimmable>true</IsTrimmable>
   </PropertyGroup>
-
 
   <ItemGroup>
     <PackageReference Include="Blazored.LocalStorage" />
@@ -26,7 +27,6 @@
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
     <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" />
     <PackageReference Include="MudBlazor" />
-    <PackageReference Include="MudBlazor.Translations" />
     <PackageReference Include="NCalc.DependencyInjection" />
   </ItemGroup>
 
