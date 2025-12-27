@@ -1,0 +1,37 @@
+﻿services:
+  db:
+    image: postgres:16-alpine
+    profiles: [ "db" ]
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: RjirfLeyz
+      POSTGRES_DB: money_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+            
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Money.Api/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__ApplicationDbContext=Host=${DB_HOST:-host.docker.internal};Database=money_db;Username=postgres;Password=RjirfLeyz
+    ports:
+      - "5000:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Money.Web/Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  db-data:

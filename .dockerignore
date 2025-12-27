@@ -1,0 +1,16 @@
+﻿**/.vs
+**/.vscode
+**/.git
+**/bin
+**/obj
+**/.idea
+**/node_modules
+*.user
+*.swp
+*.bak
+.antigravity
+.gemini
+docker-compose.yml
+docker-compose.override.yml
+Dockerfile
+**/Properties

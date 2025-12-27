@@ -3,7 +3,6 @@
   <PropertyGroup>
     <ServiceWorkerAssetsManifest>service-worker-assets.js</ServiceWorkerAssetsManifest>
     <EmccMaximumHeapSize>268435456</EmccMaximumHeapSize>
-    <HybridGlobalization>true</HybridGlobalization>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
