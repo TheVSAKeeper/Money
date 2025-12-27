@@ -13,6 +13,8 @@ try
 {
     var builder = WebApplication.CreateBuilder(args);
 
+    builder.AddServiceDefaults();
+
     builder.Logging.ClearProviders();
     builder.Host.UseNLog();
 
@@ -21,6 +23,8 @@ try
     var app = builder.Build();
 
     app.UseDefinitions();
+
+    app.MapDefaultEndpoints();
 
     AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 

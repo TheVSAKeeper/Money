@@ -1,11 +1,10 @@
-using Blazored.LocalStorage;
+﻿using Blazored.LocalStorage;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.Extensions.ServiceDiscovery;
 using Money.ApiClient;
 using Money.Web.Services.Authentication;
 using MudBlazor.Services;
-using MudBlazor.Translations;
 using NCalc.DependencyInjection;
 using System.Globalization;
 
@@ -34,8 +33,6 @@ builder.Services.AddMudServices(configuration =>
     configuration.SnackbarConfiguration.PositionClass = Defaults.Classes.Position.BottomRight;
     configuration.SnackbarConfiguration.PreventDuplicates = false;
 });
-
-builder.Services.AddMudTranslations();
 
 builder.Services.AddMemoryCache();
 builder.Services.AddBlazoredLocalStorage();

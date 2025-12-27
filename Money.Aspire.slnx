@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/aspire/">
+    <Project Path="aspire/Money.AppHost/Money.AppHost.csproj" />
+    <Project Path="aspire/Money.ServiceDefaults/Money.ServiceDefaults.csproj" />
+  </Folder>
+  <Folder Name="/backend/">
+    <Project Path="backend/Money.Api.Tests/Money.Api.Tests.csproj" />
+    <Project Path="backend/Money.Api/Money.Api.csproj" />
+    <Project Path="backend/Money.ApiClient/Money.ApiClient.csproj" />
+    <Project Path="backend/Money.Business/Money.Business.csproj" />
+    <Project Path="backend/Money.Common/Money.Common.csproj" />
+    <Project Path="backend/Money.Data/Money.Data.csproj" />
+  </Folder>
+  <Folder Name="/frontend/">
+    <Project Path="frontend/Money.Web/Money.Web.csproj" />
+  </Folder>
+</Solution>

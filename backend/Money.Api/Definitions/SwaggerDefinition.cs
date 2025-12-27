@@ -1,62 +1,57 @@
-﻿using Microsoft.Net.Http.Headers;
-using Microsoft.OpenApi.Models;
-using System.Reflection;
+﻿using Microsoft.AspNetCore.OpenApi;
+using Microsoft.Net.Http.Headers;
+using Microsoft.OpenApi;
+using Scalar.AspNetCore;
 
 namespace Money.Api.Definitions;
 
-public class SwaggerDefinition : AppDefinition
+public class OpenApiDefinition : AppDefinition
 {
     public override void ConfigureServices(WebApplicationBuilder builder)
     {
         builder.Services.AddEndpointsApiExplorer();
 
-        builder.Services.AddSwaggerGen(options =>
+        builder.Services.AddOpenApi(options =>
         {
-            options.SwaggerDoc("v1", new()
+            options.AddDocumentTransformer((document, context, cancellationToken) =>
             {
-                Title = "Money API",
-                Version = "v1",
-                Description = "API для управления финансами",
-            });
-
-            options.CustomSchemaIds(x => x.FullName);
-
-            var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
-            var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-            options.IncludeXmlComments(xmlPath);
-
-            options.ResolveConflictingActions(descriptions => descriptions.First());
-
-            options.AddSecurityDefinition("oauth2", new()
-            {
-                Description = "OAuth2.0 Authorization",
-                Flows = new()
+                document.Info = new OpenApiInfo
                 {
-                    Password = new()
-                    {
-                        TokenUrl = new("/connect/token", UriKind.Relative),
-                    },
-                },
-                In = ParameterLocation.Header,
-                Name = HeaderNames.Authorization,
-                Type = SecuritySchemeType.OAuth2,
-            });
+                    Title = "Money API",
+                    Version = "v1",
+                    Description = "API для управления финансами"
+                };
 
-            options.AddSecurityRequirement(new()
-            {
+                document.Components ??= new OpenApiComponents();
+
+                document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
+
+                document.Components.SecuritySchemes["oauth2"] = new OpenApiSecurityScheme
                 {
-                    new()
+                    Description = "OAuth2.0 Authorization",
+                    Flows = new OpenApiOAuthFlows
                     {
-                        Reference = new()
+                        Password = new OpenApiOAuthFlow
                         {
-                            Id = "oauth2",
-                            Type = ReferenceType.SecurityScheme,
-                        },
-                        In = ParameterLocation.Cookie,
-                        Type = SecuritySchemeType.OAuth2,
+                            TokenUrl = new Uri("/connect/token", UriKind.Relative)
+                        }
                     },
-                    new List<string>()
-                },
+                    In = ParameterLocation.Header,
+                    Name = HeaderNames.Authorization,
+                    Type = SecuritySchemeType.OAuth2
+                };
+
+                document.Security ??= new List<OpenApiSecurityRequirement>();
+
+                document.Security.Add(new OpenApiSecurityRequirement
+                {
+                    {
+                        new OpenApiSecuritySchemeReference("oauth2", document),
+                        []
+                    }
+                });
+
+                return Task.CompletedTask;
             });
         });
     }
@@ -65,12 +60,22 @@ public class SwaggerDefinition : AppDefinition
     {
         var swaggerForEveryOneHome = true;
 
-        if (!swaggerForEveryOneHome && app.Environment.IsDevelopment() == false)
+        if (!swaggerForEveryOneHome && !app.Environment.IsDevelopment())
         {
             return;
         }
 
-        app.UseSwagger();
-        app.UseSwaggerUI();
+        app.MapOpenApi();
+
+        app.MapScalarApiReference(options =>
+        {
+            options.WithTitle("Money API")
+                .WithTheme(ScalarTheme.Mars);
+
+            options.Authentication = new ScalarAuthenticationOptions
+            {
+                PreferredSecuritySchemes = ["oauth2"]
+            };
+        });
     }
 }

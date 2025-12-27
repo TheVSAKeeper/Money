@@ -22,11 +22,11 @@ public class OpenIddictDefinition : AppDefinition
             {
                 options.SetAuthorizationEndpointUris("connect/authorize")
                     .SetIntrospectionEndpointUris("connect/introspect")
-                    .SetLogoutEndpointUris("connect/logout")
+                    .SetEndSessionEndpointUris("connect/logout")
                     .SetTokenEndpointUris("connect/token")
-                    .SetVerificationEndpointUris("connect/verify")
-                    .SetUserinfoEndpointUris("connect/userinfo")
-                    .SetCryptographyEndpointUris("connect/jwks");
+                    .SetEndUserVerificationEndpointUris("connect/verify")
+                    .SetUserInfoEndpointUris("connect/userinfo")
+                    .SetJsonWebKeySetEndpointUris("connect/jwks");
 
                 options.AllowPasswordFlow()
                     .AllowRefreshTokenFlow()
@@ -44,9 +44,9 @@ public class OpenIddictDefinition : AppDefinition
 
                 options.UseAspNetCore()
                     .EnableAuthorizationEndpointPassthrough()
-                    .EnableLogoutEndpointPassthrough()
+                    .EnableEndSessionEndpointPassthrough()
                     .EnableTokenEndpointPassthrough()
-                    .EnableUserinfoEndpointPassthrough()
+                    .EnableUserInfoEndpointPassthrough()
                     .EnableStatusCodePagesIntegration()
                     .DisableTransportSecurityRequirement();
             });

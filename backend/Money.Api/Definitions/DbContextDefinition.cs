@@ -7,9 +7,8 @@ public class DbContextDefinition : AppDefinition
 {
     public override void ConfigureServices(WebApplicationBuilder builder)
     {
-        builder.Services.AddDbContextPool<ApplicationDbContext>(options =>
+        builder.AddNpgsqlDbContext<ApplicationDbContext>(nameof(ApplicationDbContext), configureDbContextOptions: options =>
         {
-            options.UseNpgsql(builder.Configuration.GetConnectionString(nameof(ApplicationDbContext)));
             options.UseSnakeCaseNamingConvention();
             options.UseOpenIddict();
         });
