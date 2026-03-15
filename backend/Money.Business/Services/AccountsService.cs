@@ -1,19 +1,24 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Logging;
 using Money.Data.Entities;
+using Money.Data.Sharding;
 using System.Text;
 using System.Text.RegularExpressions;
 
 namespace Money.Business.Services;
 
-public partial class AccountsService(
+public sealed partial class AccountsService(
     RequestEnvironment environment,
     UserManager<ApplicationUser> userManager,
-    ApplicationDbContext context,
-    QueueHolder queueHolder)
+    RoutingDbContext routingContext,
+    ShardedDbContextFactory shardFactory,
+    ShardRouter shardRouter,
+    QueueHolder queueHolder,
+    ILogger<AccountsService> logger)
 {
     public async Task RegisterAsync(RegisterAccount model, CancellationToken cancellationToken = default)
     {
-        if (UserNameRegex().IsMatch(model.UserName) == false)
+        if (!UserNameRegex().IsMatch(model.UserName))
         {
             throw new EntityExistsException("Извините, но имя пользователя не может содержать служебные символы.");
         }
@@ -53,12 +58,22 @@ public partial class AccountsService(
             user.EmailConfirmCode = GetCode(6);
         }
 
+        logger.LogInformation("Регистрация нового пользователя: UserName={UserName}", model.UserName);
+
         var result = await userManager.CreateAsync(user, model.Password);
 
-        if (result.Succeeded == false)
+        if (!result.Succeeded)
         {
+            logger.LogWarning("Ошибка создания Identity-пользователя {UserName}: {Errors}",
+                model.UserName,
+                string.Join("; ", result.Errors.Select(e => e.Description)));
+
             throw new IncorrectDataException($"Ошибки: {string.Join("; ", result.Errors.Select(error => error.Description))}");
         }
+
+        logger.LogInformation("Identity-пользователь создан: UserName={UserName}, AuthUserId={AuthUserId}",
+            model.UserName,
+            user.Id);
 
         await AddNewUser(user.Id, cancellationToken);
 
@@ -76,7 +91,14 @@ public partial class AccountsService(
             throw new BusinessException("Извините, но пользователь не указан.");
         }
 
-        var domainUser = await context.DomainUsers.SingleAsync(x => x.AuthUserId == user.Id);
+        var shardName = shardRouter.ResolveShard(user.Id);
+        await using var shardContext = shardFactory.Create(shardName);
+
+        logger.LogDebug("Смена пароля: AuthUserId={AuthUserId}, шард={ShardName}",
+            user.Id,
+            shardName);
+
+        var domainUser = await shardContext.DomainUsers.SingleAsync(x => x.AuthUserId == user.Id);
         if (domainUser.TransporterPassword != null)
         {
             if (!LegacyAuth.Validate(user.UserName!, currentPassword, domainUser.TransporterPassword))
@@ -86,29 +108,53 @@ public partial class AccountsService(
 
             await userManager.AddPasswordAsync(user, newPassword);
             domainUser.TransporterPassword = null;
-            await context.SaveChangesAsync();
+            await shardContext.SaveChangesAsync();
+
+            logger.LogInformation("Устаревший пароль мигрирован на Identity: AuthUserId={AuthUserId}, DomainUserId={DomainUserId}",
+                user.Id,
+                domainUser.Id);
         }
         else
         {
             var result = await userManager.ChangePasswordAsync(user, currentPassword, newPassword);
-            if (result.Succeeded == false)
+            if (!result.Succeeded)
             {
                 throw new IncorrectDataException($"Ошибки: {string.Join("; ", result.Errors.Select(error => error.Description))}");
             }
-        }
 
+            logger.LogInformation("Пароль успешно изменён: AuthUserId={AuthUserId}", user.Id);
+        }
     }
 
-    public async Task<int> EnsureUserIdAsync(Guid authUserId, CancellationToken cancellationToken = default)
+    public async Task<(int UserId, string ShardName)> EnsureUserIdAsync(Guid authUserId, CancellationToken cancellationToken = default)
     {
-        var domainUser = await context.DomainUsers.FirstOrDefaultAsync(x => x.AuthUserId == authUserId, cancellationToken);
+        var shardName = shardRouter.ResolveShard(authUserId);
+
+        logger.LogDebug("Поиск доменного пользователя: AuthUserId={AuthUserId}, целевой шард={ShardName}",
+            authUserId,
+            shardName);
+
+        await using var shardContext = shardFactory.Create(shardName);
+
+        var domainUser = await shardContext.DomainUsers
+            .FirstOrDefaultAsync(x => x.AuthUserId == authUserId, cancellationToken);
 
         if (domainUser != null)
         {
-            return domainUser.Id;
+            logger.LogDebug("Доменный пользователь найден: AuthUserId={AuthUserId}, DomainUserId={DomainUserId}, шард={ShardName}",
+                authUserId,
+                domainUser.Id,
+                shardName);
+
+            return (domainUser.Id, shardName);
         }
 
-        return await AddNewUser(authUserId, cancellationToken);
+        logger.LogInformation("Доменный пользователь не найден на шарде {ShardName} для AuthUserId={AuthUserId}, создаём нового",
+            shardName,
+            authUserId);
+
+        var userId = await AddNewUser(authUserId, cancellationToken);
+        return (userId, shardName);
     }
 
     public async Task ConfirmEmailAsync(string confirmCode, CancellationToken cancellationToken = default)
@@ -136,7 +182,7 @@ public partial class AccountsService(
         }
 
         user.EmailConfirmed = true;
-        await context.SaveChangesAsync(cancellationToken);
+        await userManager.UpdateAsync(user);
     }
 
     public async Task ResendConfirmCodeAsync(CancellationToken cancellationToken = default)
@@ -161,7 +207,7 @@ public partial class AccountsService(
         // TODO: Проверка на повторную отправку по времени (защита от частых запросов)
 
         user.EmailConfirmCode = GetCode(6);
-        await context.SaveChangesAsync(cancellationToken);
+        await userManager.UpdateAsync(user);
 
         SendEmail(user.UserName!, user.Email, user.EmailConfirmCode);
     }
@@ -179,6 +225,9 @@ public partial class AccountsService(
         return result.ToString();
     }
 
+    [GeneratedRegex("^[a-zA-Z0-9_-]+$", RegexOptions.Compiled)]
+    private static partial Regex UserNameRegex();
+
     private void SendEmail(string userName, string email, string confirmCode)
     {
         const string Title = "Подтверждение регистрации";
@@ -191,17 +240,36 @@ public partial class AccountsService(
     // TODO Подумать над переносом в сервис
     private async Task<int> AddNewUser(Guid authUserId, CancellationToken cancellationToken = default)
     {
-        var domainUser = new DomainUser
-        {
-            AuthUserId = authUserId,
-        };
+        var shardName = shardRouter.ResolveShard(authUserId);
 
-        await context.DomainUsers.AddAsync(domainUser, cancellationToken);
-        await context.SaveChangesAsync(cancellationToken);
+        logger.LogInformation("Создание доменного пользователя: AuthUserId={AuthUserId}, назначенный шард={ShardName}",
+            authUserId,
+            shardName);
+
+        await using var shardContext = shardFactory.Create(shardName);
+
+        var domainUser = new DomainUser { AuthUserId = authUserId };
+        await shardContext.DomainUsers.AddAsync(domainUser, cancellationToken);
+        await shardContext.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation("Доменный пользователь создан: AuthUserId={AuthUserId}, DomainUserId={DomainUserId}, шард={ShardName}",
+            authUserId,
+            domainUser.Id,
+            shardName);
+
+        routingContext.ShardMappings.Add(new()
+        {
+            UserId = domainUser.Id,
+            ShardName = shardName,
+            AssignedAt = DateTime.UtcNow,
+        });
+
+        await routingContext.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation("Аудит назначения шарда сохранён в RoutingDb: DomainUserId={DomainUserId}, шард={ShardName}",
+            domainUser.Id,
+            shardName);
 
         return domainUser.Id;
     }
-
-    [GeneratedRegex("^[a-zA-Z0-9_-]+$", RegexOptions.Compiled)]
-    private static partial Regex UserNameRegex();
 }

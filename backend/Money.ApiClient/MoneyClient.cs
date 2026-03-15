@@ -18,6 +18,7 @@ public class MoneyClient
         Accounts = new(this);
         Cars = new(this);
         CarEvents = new(this);
+        Admin = new(this);
     }
 
     [ActivatorUtilitiesConstructor]
@@ -38,6 +39,7 @@ public class MoneyClient
     public AccountsClient Accounts { get; }
     public CarsClient Cars { get; }
     public CarEventsClient CarEvents { get; }
+    public AdminClient Admin { get; }
 
     public void SetUser(string login, string password)
     {

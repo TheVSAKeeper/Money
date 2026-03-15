@@ -1,48 +1,24 @@
-#pragma warning disable S2139
-using NLog;
-using NLog.Web;
 using System.Globalization;
 
-var logger = LogManager.Setup()
-    .LoadConfigurationFromAppSettings()
-    .GetCurrentClassLogger();
+var builder = WebApplication.CreateBuilder(args);
 
-logger.Debug("init main");
+builder.AddServiceDefaults();
 
-try
-{
-    var builder = WebApplication.CreateBuilder(args);
+builder.AddDefinitions(typeof(Program));
 
-    builder.AddServiceDefaults();
+var app = builder.Build();
 
-    builder.Logging.ClearProviders();
-    builder.Host.UseNLog();
+app.UseDefinitions();
 
-    builder.AddDefinitions(typeof(Program));
+app.MapDefaultEndpoints();
 
-    var app = builder.Build();
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
-    app.UseDefinitions();
+var culture = new CultureInfo("ru-RU");
+CultureInfo.DefaultThreadCurrentCulture = culture;
+CultureInfo.DefaultThreadCurrentUICulture = culture;
 
-    app.MapDefaultEndpoints();
-
-    AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
-
-    var culture = new CultureInfo("ru-RU");
-    CultureInfo.DefaultThreadCurrentCulture = culture;
-    CultureInfo.DefaultThreadCurrentUICulture = culture;
-
-    await app.RunAsync();
-}
-catch (Exception exception)
-{
-    logger.Error(exception, "Stopped program because of exception");
-    throw;
-}
-finally
-{
-    LogManager.Shutdown();
-}
+await app.RunAsync();
 
 public partial class Program
 {

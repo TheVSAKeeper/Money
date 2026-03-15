@@ -43,6 +43,21 @@
                 Авто
             </MudNavLink>
 
+            <MudNavGroup Icon="@Icons.Material.Rounded.AdminPanelSettings"
+                         Title="Администрирование"
+                         Expanded="@_currentUrl.StartsWith("admin", StringComparison.Ordinal)">
+                <MudNavLink Href="admin"
+                            Icon="@Icons.Material.Rounded.Dashboard"
+                            Match="NavLinkMatch.All">
+                    Дашборд
+                </MudNavLink>
+                <MudNavLink Href="admin/sharding"
+                            Icon="@Icons.Material.Rounded.Storage"
+                            Match="NavLinkMatch.Prefix">
+                    Шардирование
+                </MudNavLink>
+            </MudNavGroup>
+
             <MudNavLink Href="settings"
                         Icon="@Icons.Material.Rounded.SettingsApplications">
                 Настройки

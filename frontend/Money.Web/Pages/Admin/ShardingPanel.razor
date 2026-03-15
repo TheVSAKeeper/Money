@@ -1,0 +1,478 @@
+@page "/admin/sharding"
+@attribute [Authorize]
+@using Money.ApiClient
+@using static ApiClient.AdminClient
+@implements IDisposable
+
+@inject MoneyClient Client
+
+<PageTitle>Шардирование</PageTitle>
+
+<MudText Typo="Typo.h5"
+         GutterBottom>Шардирование
+</MudText>
+
+@if (_response == null)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudAlert Severity="Severity.Info"
+              Variant="Variant.Outlined"
+              Dense
+              Class="mb-4"
+              Icon="@Icons.Material.Rounded.Route">
+        <MudStack Row
+                  AlignItems="AlignItems.Center"
+                  Spacing="1">
+            <MudText>Ваш шард:</MudText>
+            <MudChip T="string"
+                     Color="Color.Primary"
+                     Size="Size.Small"
+                     Variant="Variant.Filled">
+                @_response.CurrentUserShard
+            </MudChip>
+            <MudText Typo="Typo.caption"
+                     Class="mud-text-secondary ml-2">
+                Маршрутизация: consistent hashing по AuthUserId
+            </MudText>
+        </MudStack>
+    </MudAlert>
+
+    @* --- Сводка --- *@
+    <MudGrid Class="mb-4">
+        <MudItem xs="12"
+                 sm="4">
+            <MudPaper Class="pa-4"
+                      Elevation="0">
+                <MudStack Row
+                          AlignItems="AlignItems.Center"
+                          Spacing="3">
+                    <MudIcon Icon="@Icons.Material.Rounded.Dns"
+                             Color="Color.Primary"
+                             Size="Size.Large" />
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.caption"
+                                 Class="mud-text-secondary">Шардов
+                        </MudText>
+                        <MudText Typo="Typo.h5">@_response.Shards.Count</MudText>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12"
+                 sm="4">
+            <MudPaper Class="pa-4"
+                      Elevation="0">
+                <MudStack Row
+                          AlignItems="AlignItems.Center"
+                          Spacing="3">
+                    <MudIcon Icon="@Icons.Material.Rounded.TableRows"
+                             Color="Color.Secondary"
+                             Size="Size.Large" />
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.caption"
+                                 Class="mud-text-secondary">Всего строк
+                        </MudText>
+                        <MudText Typo="Typo.h5">@_totalRows.ToString("N0")</MudText>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12"
+                 sm="4">
+            <MudPaper Class="pa-4"
+                      Elevation="0">
+                <MudStack Row
+                          AlignItems="AlignItems.Center"
+                          Spacing="3">
+                    <MudIcon Icon="@Icons.Material.Rounded.Storage"
+                             Color="Color.Tertiary"
+                             Size="Size.Large" />
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.caption"
+                                 Class="mud-text-secondary">Общий размер
+                        </MudText>
+                        <MudText Typo="Typo.h5">@FormatBytes(_totalDbSize)</MudText>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudGrid>
+        @foreach (var (shardName, info) in _response.Shards.OrderBy(x => x.Key))
+        {
+            var isCurrentShard = shardName == _response.CurrentUserShard;
+            var rowShare = _totalRows > 0 ? (double)info.TotalRows / _totalRows * 100 : 0;
+            var sizeShare = _totalDbSize > 0 ? (double)info.DbSizeBytes / _totalDbSize * 100 : 0;
+
+            <MudItem xs="12"
+                     md="4">
+                <MudCard Elevation="@(isCurrentShard ? 8 : 2)"
+                         Style="@(isCurrentShard ? "border: 2px solid var(--mud-palette-primary)" : "")">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudStack Row
+                                      AlignItems="AlignItems.Center"
+                                      Spacing="2">
+                                <MudText Typo="Typo.h6">@shardName</MudText>
+                                @if (isCurrentShard)
+                                {
+                                    <MudChip T="string"
+                                             Color="Color.Primary"
+                                             Size="Size.Small"
+                                             Variant="Variant.Outlined">
+                                        ваш
+                                    </MudChip>
+                                }
+                            </MudStack>
+                        </CardHeaderContent>
+                        <CardHeaderActions>
+                            <MudIcon Icon="@Icons.Material.Rounded.Storage"
+                                     Color="@(isCurrentShard ? Color.Primary : Color.Default)" />
+                        </CardHeaderActions>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudStack Spacing="3">
+                            <MudStack Spacing="1">
+                                <MudStack Row
+                                          Justify="Justify.SpaceBetween"
+                                          AlignItems="AlignItems.Center">
+                                    <MudText Typo="Typo.body2">Размер БД</MudText>
+                                    <MudText Typo="Typo.subtitle2">@FormatBytes(info.DbSizeBytes)</MudText>
+                                </MudStack>
+                                <MudProgressLinear Value="sizeShare"
+                                                   Color="Color.Primary"
+                                                   Rounded
+                                                   Size="Size.Small" />
+                            </MudStack>
+
+                            <MudStack Spacing="1">
+                                <MudStack Row
+                                          Justify="Justify.SpaceBetween"
+                                          AlignItems="AlignItems.Center">
+                                    <MudText Typo="Typo.body2">Строки</MudText>
+                                    <MudText Typo="Typo.subtitle2">@info.TotalRows.ToString("N0")</MudText>
+                                </MudStack>
+                                <MudProgressLinear Value="rowShare"
+                                                   Color="Color.Secondary"
+                                                   Rounded
+                                                   Size="Size.Small" />
+                            </MudStack>
+
+                            <MudStack Row
+                                      Justify="Justify.SpaceBetween"
+                                      AlignItems="AlignItems.Center">
+                                <MudText Typo="Typo.body2">Данные таблиц</MudText>
+                                <MudText Typo="Typo.subtitle2">@FormatBytes(info.SizeBytes)</MudText>
+                            </MudStack>
+
+                            @{
+                                var deadRows = info.Tables.Sum(t => t.DeadRows);
+                            }
+                            @if (deadRows > 0)
+                            {
+                                <MudStack Row
+                                          Justify="Justify.SpaceBetween"
+                                          AlignItems="AlignItems.Center">
+                                    <MudTooltip Text="Строки, ожидающие VACUUM. Большое количество может влиять на производительность.">
+                                        <MudStack Row
+                                                  AlignItems="AlignItems.Center"
+                                                  Spacing="1">
+                                            <MudIcon Icon="@Icons.Material.Rounded.Warning"
+                                                     Size="Size.Small"
+                                                     Color="@(deadRows > 1000 ? Color.Warning : Color.Default)" />
+                                            <MudText Typo="Typo.body2">Dead rows</MudText>
+                                        </MudStack>
+                                    </MudTooltip>
+                                    <MudText Typo="Typo.subtitle2">@deadRows.ToString("N0")</MudText>
+                                </MudStack>
+                            }
+                        </MudStack>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+        }
+    </MudGrid>
+
+    <MudGrid Class="mt-6">
+        <MudItem xs="12"
+                 md="6">
+            <MudPaper Class="pa-4"
+                      Elevation="2">
+                <MudText Typo="Typo.h6"
+                         GutterBottom>Распределение строк
+                </MudText>
+                <MudChart ChartType="ChartType.Donut"
+                          InputData="@_rowsData"
+                          InputLabels="@_xAxisLabels"
+                          Width="100%"
+                          Height="250px" />
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12"
+                 md="6">
+            <MudPaper Class="pa-4"
+                      Elevation="2">
+                <MudText Typo="Typo.h6"
+                         GutterBottom>Распределение размера
+                </MudText>
+                <MudChart ChartType="ChartType.Donut"
+                          InputData="@_sizeData"
+                          InputLabels="@_xAxisLabels"
+                          Width="100%"
+                          Height="250px" />
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudPaper Class="pa-4 mt-6"
+              Elevation="2">
+        <MudStack Row
+                  Justify="Justify.SpaceBetween"
+                  AlignItems="AlignItems.Center"
+                  Class="mb-3">
+            <MudText Typo="Typo.h6">Пользователи по шардам</MudText>
+            @if (_users != null)
+            {
+                <MudChip T="string"
+                         Size="Size.Small"
+                         Variant="Variant.Outlined"
+                         Color="Color.Default"
+                         Icon="@Icons.Material.Rounded.People">
+                    @_users.Count
+                </MudChip>
+            }
+        </MudStack>
+
+        @if (_users == null)
+        {
+            <MudProgressCircular Indeterminate="true"
+                                 Size="Size.Small" />
+        }
+        else
+        {
+            <MudTable T="UserShardInfo"
+                      Items="_users"
+                      Dense
+                      Hover
+                      Striped
+                      Elevation="0"
+                      Filter="FilterUser">
+                <ToolBarContent>
+                    <MudSpacer />
+                    <MudTextField @bind-Value="_userSearch"
+                                  Placeholder="Поиск"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Search"
+                                  IconSize="Size.Medium"
+                                  Immediate />
+                </ToolBarContent>
+                <HeaderContent>
+                    <MudTh>Пользователь</MudTh>
+                    <MudTh>Email</MudTh>
+                    <MudTh>Шард</MudTh>
+                    <MudTh>Назначен</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Пользователь">@context.UserName</MudTd>
+                    <MudTd DataLabel="Email">@context.Email</MudTd>
+                    <MudTd DataLabel="Шард">
+                        <MudChip T="string"
+                                 Size="Size.Small"
+                                 Variant="Variant.Outlined"
+                                 Color="Color.Primary">
+                            @context.ShardName
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Назначен">
+                        <MudText Typo="Typo.body2">@context.AssignedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</MudText>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    </MudPaper>
+
+    <MudPaper Class="pa-4 mt-6"
+              Elevation="2">
+        <MudStack Row
+                  Justify="Justify.SpaceBetween"
+                  AlignItems="AlignItems.Center"
+                  Class="mb-3">
+            <MudText Typo="Typo.h6">Детализация по таблицам</MudText>
+            <MudChip T="string"
+                     Size="Size.Small"
+                     Variant="Variant.Outlined"
+                     Color="Color.Default"
+                     Icon="@Icons.Material.Rounded.Refresh">
+                Обновление каждые 30 сек
+            </MudChip>
+        </MudStack>
+
+        <MudTabs Elevation="0"
+                 Rounded
+                 ApplyEffectsToContainer
+                 PanelClass="pt-3">
+            @foreach (var (shardName, info) in _response.Shards.OrderBy(x => x.Key))
+            {
+                <MudTabPanel Text="@shardName">
+                    <MudTable T="TableMetrics"
+                              Items="@info.Tables.OrderByDescending(t => t.LiveRows)"
+                              Dense
+                              Hover
+                              Striped
+                              Elevation="0">
+                        <HeaderContent>
+                            <MudTh>Таблица</MudTh>
+                            <MudTh Class="text-right">Строки</MudTh>
+                            <MudTh Class="text-right">Dead rows</MudTh>
+                            <MudTh Class="text-right">Размер</MudTh>
+                            <MudTh Class="text-right"
+                                   Style="min-width: 120px">Заполненность
+                            </MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            @{
+                                var tableShare = info.TotalRows > 0 ? (double)context.LiveRows / info.TotalRows * 100 : 0;
+                            }
+                            <MudTd DataLabel="Таблица">
+                                <MudStack Row
+                                          AlignItems="AlignItems.Center"
+                                          Spacing="1">
+                                    <MudIcon Icon="@Icons.Material.Rounded.TableChart"
+                                             Size="Size.Small"
+                                             Color="Color.Tertiary" />
+                                    <MudText Typo="Typo.body2">@context.Name</MudText>
+                                </MudStack>
+                            </MudTd>
+                            <MudTd DataLabel="Строки"
+                                   Class="text-right">@context.LiveRows.ToString("N0")</MudTd>
+                            <MudTd DataLabel="Dead rows"
+                                   Class="text-right">
+                                @if (context.DeadRows > 0)
+                                {
+                                    <MudText Typo="Typo.body2"
+                                             Color="@(context.DeadRows > 100 ? Color.Warning : Color.Default)">
+                                        @context.DeadRows.ToString("N0")
+                                    </MudText>
+                                }
+                                else
+                                {
+                                    <MudText Typo="Typo.body2"
+                                             Class="mud-text-disabled">0
+                                    </MudText>
+                                }
+                            </MudTd>
+                            <MudTd DataLabel="Размер"
+                                   Class="text-right">@FormatBytes(context.SizeBytes)</MudTd>
+                            <MudTd DataLabel="Заполненность">
+                                <MudProgressLinear Value="tableShare"
+                                                   Color="Color.Info"
+                                                   Rounded
+                                                   Size="Size.Small" />
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudTabPanel>
+            }
+        </MudTabs>
+    </MudPaper>
+
+    @if (_partitions != null)
+    {
+        <MudPaper Class="pa-4 mt-6"
+                  Elevation="2">
+            <MudStack Row
+                      Justify="Justify.SpaceBetween"
+                      AlignItems="AlignItems.Center"
+                      Class="mb-4">
+                <MudText Typo="Typo.h6">Партиционирование таблицы operations</MudText>
+                <MudSelect T="string"
+                           Value="@_selectedPartitionShard"
+                           ValueChanged="OnPartitionShardChanged"
+                           Label="Шард"
+                           Variant="Variant.Outlined"
+                           Dense
+                           Style="min-width: 160px">
+                    @foreach (var shard in _partitions.Select(p => p.Shard).OrderBy(s => s))
+                    {
+                        <MudSelectItem Value="@shard">@shard</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudStack>
+
+            @{
+                var shardPartitions = SelectedShardPartitions;
+            }
+
+            @if (shardPartitions != null)
+            {
+                <MudAlert Severity="Severity.Info"
+                          Dense
+                          Variant="Variant.Outlined"
+                          Class="mb-4"
+                          Icon="@Icons.Material.Rounded.Schedule">
+                    Последнее обслуживание: @shardPartitions.LastMaintenanceUtc.ToLocalTime().ToString("g")
+                </MudAlert>
+
+                <MudText Typo="Typo.subtitle1"
+                         Class="mb-2">Размер партиций по месяцам (байт)
+                </MudText>
+
+                <MudChart ChartType="ChartType.Bar"
+                          ChartSeries="@_partitionChartSeries"
+                          XAxisLabels="@_partitionMonthLabels"
+                          Width="100%"
+                          Height="220px"
+                          ChartOptions="@PartitionChartOptions" />
+
+                <MudDataGrid T="PartitionInfo"
+                             Items="@shardPartitions.Partitions"
+                             SortMode="SortMode.Multiple"
+                             Dense
+                             Hover
+                             Class="mt-4">
+                    <Columns>
+                        <PropertyColumn Property="p => p.Name"
+                                        Title="Партиция"
+                                        Sortable="true" />
+                        <PropertyColumn Property="p => p.RangeStart"
+                                        Title="С"
+                                        Sortable="true" />
+                        <PropertyColumn Property="p => p.RangeEnd"
+                                        Title="По"
+                                        Sortable="true" />
+                        <TemplateColumn Title="Строк (прибл.)"
+                                        SortBy="@(p => p.ApproxRows)"
+                                        Sortable="true">
+                            <CellTemplate>
+                                @{
+                                    var rowColor = context.Item.ApproxRows == 0 ? Color.Default : Color.Primary;
+                                }
+                                <MudText Typo="Typo.body2"
+                                         Color="@rowColor">
+                                    @context.Item.ApproxRows.ToString("N0")
+                                </MudText>
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Размер"
+                                        SortBy="@(p => p.SizeBytes)"
+                                        Sortable="true">
+                            <CellTemplate>
+                                @{
+                                    var sizeColor = context.Item.ApproxRows == 0 ? Color.Default : Color.Primary;
+                                }
+                                <MudText Typo="Typo.body2"
+                                         Color="@sizeColor">
+                                    @FormatBytes(context.Item.SizeBytes)
+                                </MudText>
+                            </CellTemplate>
+                        </TemplateColumn>
+                    </Columns>
+                </MudDataGrid>
+            }
+        </MudPaper>
+    }
+}

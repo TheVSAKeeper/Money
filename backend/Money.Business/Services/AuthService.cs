@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Money.Data.Entities;
+using Money.Data.Sharding;
 using OpenIddict.Abstractions;
 using System.Security.Claims;
 
@@ -10,7 +12,9 @@ namespace Money.Business.Services;
 public class AuthService(
     UserManager<ApplicationUser> userManager,
     SignInManager<ApplicationUser> signInManager,
-    ApplicationDbContext context)
+    ShardedDbContextFactory shardFactory,
+    ShardRouter shardRouter,
+    ILogger<AuthService> logger)
 {
     public async Task<ClaimsIdentity> HandlePasswordGrantAsync(OpenIddictRequest request)
     {
@@ -24,35 +28,63 @@ public class AuthService(
             throw new PermissionException("Пароль отсутствует в запросе.");
         }
 
+        logger.LogDebug("Аутентификация по паролю: UserName={UserName}", request.Username);
+
         var user = await userManager.FindByNameAsync(request.Username);
 
         if (user == null)
         {
             user = await userManager.FindByEmailAsync(request.Username);
 
-            if (user == null || user.EmailConfirmed == false)
+            if (user is not { EmailConfirmed: true })
             {
+                logger.LogWarning("Неудачная аутентификация: пользователь {UserName} не найден", request.Username);
                 throw new PermissionException("Неверное имя пользователя или пароль.");
             }
         }
 
-        var domainUser = await context.DomainUsers.SingleAsync(x => x.AuthUserId == user.Id);
+        var shardName = shardRouter.ResolveShard(user.Id);
+
+        logger.LogDebug("Проверка legacy-пароля: AuthUserId={AuthUserId}, шард={ShardName}",
+            user.Id,
+            shardName);
+
+        await using var shardContext = shardFactory.Create(shardName);
+        var domainUser = await shardContext.DomainUsers.SingleAsync(x => x.AuthUserId == user.Id);
 
         if (domainUser.TransporterPassword != null)
         {
             if (!LegacyAuth.Validate(request.Username, request.Password, domainUser.TransporterPassword))
             {
+                logger.LogWarning("Неудачная аутентификация (legacy): AuthUserId={AuthUserId}, DomainUserId={DomainUserId}",
+                    user.Id,
+                    domainUser.Id);
+
                 throw new PermissionException("Неверное имя пользователя или пароль.");
             }
+
+            logger.LogInformation("Успешная аутентификация через legacy-пароль: AuthUserId={AuthUserId}, DomainUserId={DomainUserId}, шард={ShardName}",
+                user.Id,
+                domainUser.Id,
+                shardName);
         }
         else
         {
             var result = await signInManager.CheckPasswordSignInAsync(user, request.Password, true);
 
-            if (result.Succeeded == false)
+            if (!result.Succeeded)
             {
+                logger.LogWarning("Неудачная аутентификация: AuthUserId={AuthUserId}, DomainUserId={DomainUserId}",
+                    user.Id,
+                    domainUser.Id);
+
                 throw new PermissionException("Неверное имя пользователя или пароль.");
             }
+
+            logger.LogInformation("Успешная аутентификация: AuthUserId={AuthUserId}, DomainUserId={DomainUserId}, шард={ShardName}",
+                user.Id,
+                domainUser.Id,
+                shardName);
         }
 
         return await CreateClaimsIdentityAsync(user, request.GetScopes().Add(OpenIddictConstants.Scopes.OfflineAccess));
@@ -71,13 +103,17 @@ public class AuthService(
 
         if (user == null)
         {
+            logger.LogWarning("Обновление токена: пользователь AuthUserId={AuthUserId} не найден", userId);
             throw new PermissionException("Токен обновления больше не действителен. Пожалуйста, выполните вход заново.");
         }
 
-        if (await signInManager.CanSignInAsync(user) == false)
+        if (!await signInManager.CanSignInAsync(user))
         {
+            logger.LogWarning("Обновление токена: вход заблокирован для AuthUserId={AuthUserId}", user.Id);
             throw new PermissionException("Вам больше не разрешено входить в систему.");
         }
+
+        logger.LogDebug("Обновление токена: AuthUserId={AuthUserId}", user.Id);
 
         var originalScopes = result.Principal?.GetScopes() ?? [];
 
@@ -104,13 +140,19 @@ public class AuthService(
 
         if (user == null)
         {
+            logger.LogWarning("Внешняя аутентификация: пользователь не найден, NameId={NameId}", nameId);
             throw new PermissionException("Извините, но учетная запись пользователя не найдена.");
         }
 
-        if (await signInManager.CanSignInAsync(user) == false)
+        if (!await signInManager.CanSignInAsync(user))
         {
+            logger.LogWarning("Внешняя аутентификация: вход заблокирован для AuthUserId={AuthUserId}", user.Id);
             throw new PermissionException("Вам больше не разрешено входить в систему.");
         }
+
+        logger.LogInformation("Успешная внешняя аутентификация: AuthUserId={AuthUserId}, NameId={NameId}",
+            user.Id,
+            nameId);
 
         var scopes = new[]
         {

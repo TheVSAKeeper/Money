@@ -25,7 +25,7 @@ public class DomainUser
 
     public int NextCarEventId { get; set; }
 
-    public byte[]? RowVersion { get; set; }
+    public uint RowVersion { get; set; }
 
     /// <summary>
     /// Данные перенесённые со старой БД.
@@ -88,7 +88,6 @@ public class DomainUserConfiguration : IEntityTypeConfiguration<DomainUser>
             .IsRequired();
 
         builder.Property(x => x.RowVersion)
-            .IsRowVersion()
-            .IsRequired();
+            .IsRowVersion();
     }
 }

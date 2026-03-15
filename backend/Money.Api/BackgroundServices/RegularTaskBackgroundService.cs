@@ -1,6 +1,12 @@
-﻿namespace Money.Api.BackgroundServices;
+﻿using Money.Business;
+using Money.Data.Sharding;
 
-public class RegularTaskBackgroundService(IServiceProvider serviceProvider, ILogger<RegularTaskBackgroundService> logger) : BackgroundService
+namespace Money.Api.BackgroundServices;
+
+public sealed class RegularTaskBackgroundService(
+    IServiceProvider serviceProvider,
+    ShardedDbContextFactory shardFactory,
+    ILogger<RegularTaskBackgroundService> logger) : BackgroundService
 {
     private readonly PeriodicTimer _timer = new(TimeSpan.FromHours(1));
     private DateTime _lastExecuteDate = DateTime.Now.Date.AddDays(-1);
@@ -37,10 +43,9 @@ public class RegularTaskBackgroundService(IServiceProvider serviceProvider, ILog
 
             try
             {
-                await using (var scope = serviceProvider.CreateAsyncScope())
+                foreach (var shardName in shardFactory.ShardNames)
                 {
-                    var service = scope.ServiceProvider.GetRequiredService<RegularOperationsService>();
-                    await service.RunRegularTaskAsync(stoppingToken);
+                    await RunForShardAsync(shardName, stoppingToken);
                 }
 
                 _lastExecuteDate = DateTime.Now.Date;
@@ -51,5 +56,24 @@ public class RegularTaskBackgroundService(IServiceProvider serviceProvider, ILog
                 logger.LogError(exception, "Ошибка при выполнении регулярной задачи");
             }
         } while (await _timer.WaitForNextTickAsync(stoppingToken));
+    }
+
+    private async Task RunForShardAsync(string shardName, CancellationToken stoppingToken)
+    {
+        try
+        {
+            await using var scope = serviceProvider.CreateAsyncScope();
+            var environment = scope.ServiceProvider.GetRequiredService<RequestEnvironment>();
+            environment.ShardName = shardName;
+
+            var service = scope.ServiceProvider.GetRequiredService<RegularOperationsService>();
+            await service.RunRegularTaskAsync(stoppingToken);
+
+            logger.LogDebug("Регулярные задачи выполнены для шарда {ShardName}", shardName);
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Ошибка при выполнении регулярных задач на шарде {ShardName}", shardName);
+        }
     }
 }

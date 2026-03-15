@@ -16,7 +16,7 @@ public class OpenIddictDefinition : AppDefinition
             .AddCore(options =>
             {
                 options.UseEntityFrameworkCore()
-                    .UseDbContext<ApplicationDbContext>();
+                    .UseDbContext<RoutingDbContext>();
             })
             .AddServer(options =>
             {

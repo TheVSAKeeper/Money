@@ -1,12 +1,12 @@
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
+using Serilog;
+using Serilog.Sinks.SystemConsole.Themes;
 
 namespace Microsoft.Extensions.Hosting;
 
@@ -15,6 +15,7 @@ public static class Extensions
     public static IHostApplicationBuilder AddServiceDefaults(this IHostApplicationBuilder builder)
     {
         builder.ConfigureOpenTelemetry();
+        //builder.ConfigureSerilog();
         builder.AddDefaultHealthChecks();
 
         builder.Services.AddServiceDiscovery();
@@ -34,13 +35,59 @@ public static class Extensions
         {
             app.MapHealthChecks("/health");
 
-            app.MapHealthChecks("/alive", new HealthCheckOptions
+            app.MapHealthChecks("/alive", new()
             {
                 Predicate = r => r.Tags.Contains("live"),
             });
         }
 
         return app;
+    }
+
+    public static IHostApplicationBuilder ConfigureSerilog(this IHostApplicationBuilder builder)
+    {
+        builder.Services.AddSerilog((services, loggerConfiguration) =>
+        {
+            loggerConfiguration
+                .ReadFrom.Configuration(builder.Configuration)
+                .ReadFrom.Services(services)
+                .Enrich.FromLogContext()
+                .Enrich.WithEnvironmentName()
+                .Enrich.WithMachineName()
+                .Enrich.WithThreadId()
+                .Enrich.WithProperty("ApplicationName", builder.Environment.ApplicationName)
+                .Enrich.WithProperty("Environment", builder.Environment.EnvironmentName)
+                .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}",
+                    theme: AnsiConsoleTheme.Code);
+
+            /*loggerConfiguration.WriteTo.OpenTelemetry(options =>
+            {
+                options.Endpoint = builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"];
+                var headers = builder.Configuration["OTEL_EXPORTER_OTLP_HEADERS"]?.Split(',') ?? [];
+                foreach (var header in headers)
+                {
+                    var (key, value) = header.Split('=') switch
+                    {
+                        [string k, string v] => (k, v),
+                        var v => throw new($"Invalid header format {v}"),
+                    };
+
+                    options.Headers.Add(key, value);
+                }
+
+                options.ResourceAttributes.Add("service.name", builder.Environment.ApplicationName);
+
+                var (otelResourceAttribute, otelResourceAttributeValue) = builder.Configuration["OTEL_RESOURCE_ATTRIBUTES"]?.Split('=') switch
+                {
+                    [{ } k, { } v] => (k, v),
+                    _ => throw new($"Invalid header format {builder.Configuration["OTEL_RESOURCE_ATTRIBUTES"]}"),
+                };
+
+                options.ResourceAttributes.Add(otelResourceAttribute, otelResourceAttributeValue);
+            });*/
+        });
+
+        return builder;
     }
 
     public static IHostApplicationBuilder ConfigureOpenTelemetry(this IHostApplicationBuilder builder)
@@ -80,7 +127,7 @@ public static class Extensions
         }
     }
 
-    public static IHostApplicationBuilder AddDefaultHealthChecks(this IHostApplicationBuilder builder)
+    private static IHostApplicationBuilder AddDefaultHealthChecks(this IHostApplicationBuilder builder)
     {
         builder.Services.AddHealthChecks()
             .AddCheck("self", () => HealthCheckResult.Healthy(), ["live"]);

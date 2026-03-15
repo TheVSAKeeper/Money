@@ -8,5 +8,8 @@ public class BackgroundServicesDefinition : AppDefinition
     {
         builder.Services.AddHostedService<RegularTaskBackgroundService>();
         builder.Services.AddHostedService<EmailSenderBackgroundService>();
+
+        builder.Services.AddSingleton<PartitionMaintenanceService>();
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<PartitionMaintenanceService>());
     }
 }

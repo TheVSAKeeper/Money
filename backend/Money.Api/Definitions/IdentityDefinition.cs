@@ -25,7 +25,7 @@ public class IdentityDefinition : AppDefinition
                 options.Password.RequiredLength = 8;
                 options.Password.RequireUppercase = false;
             })
-            .AddEntityFrameworkStores<ApplicationDbContext>()
+            .AddEntityFrameworkStores<RoutingDbContext>()
             .AddDefaultTokenProviders();
 
         builder.Services.ConfigureApplicationCookie(options =>

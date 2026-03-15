@@ -1,0 +1,22 @@
+@page "/admin"
+@attribute [Authorize]
+
+<PageTitle>Администрирование</PageTitle>
+
+<MudText Typo="Typo.h5" GutterBottom>Администрирование</MudText>
+
+<MudGrid>
+    <MudItem xs="12" sm="6" md="4" Class="d-flex">
+        <MudCard Class="cursor-pointer flex-grow-1" @onclick='() => Nav.NavigateTo("admin/sharding")' Elevation="2">
+            <MudCardContent>
+                <MudStack Row AlignItems="AlignItems.Center" Spacing="3">
+                    <MudIcon Icon="@Icons.Material.Rounded.Storage" Color="Color.Primary" Size="Size.Large" />
+                    <div>
+                        <MudText Typo="Typo.h6">Шардирование</MudText>
+                        <MudText Typo="Typo.body2" Style="opacity: 0.7">Метрики и распределение данных</MudText>
+                    </div>
+                </MudStack>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+</MudGrid>

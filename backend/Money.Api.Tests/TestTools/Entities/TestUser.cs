@@ -105,13 +105,18 @@ public class TestUser : TestObject
         {
             Environment.ApiClient.RegisterAsync(UserName, Email, Password).Wait();
 
-            var dbUser = Environment.Context.Users
+            using var routingCtx = Environment.CreateRoutingDbContext();
+            var dbUser = routingCtx.Users
                 .Single(x => x.UserName == UserName);
+
+            var shardName = Environment.ShardRouter.ResolveShard(dbUser.Id);
+            Environment.SetShard(shardName);
 
             var domainUser = Environment.Context.DomainUsers
                 .Single(x => x.AuthUserId == dbUser.Id);
 
             Id = domainUser.Id;
+            IsNew = false;
         }
     }
 }

@@ -19,4 +19,11 @@ public class RequestEnvironment
     }
 
     public ApplicationUser? AuthUser { get; set; }
+
+    public string? ShardName { get; set; }
+
+    public int? TryGetUserId()
+    {
+        return _userId;
+    }
 }

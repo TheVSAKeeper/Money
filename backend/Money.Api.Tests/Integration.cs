@@ -3,7 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Money.Data;
+using Money.Data.Sharding;
 using System.Collections.Concurrent;
+using Testcontainers.PostgreSql;
 
 namespace Money.Api.Tests;
 
@@ -18,18 +20,20 @@ public class Integration
     public static DatabaseClient GetDatabaseClient()
     {
         var config = TestServer.Services.GetRequiredService<IConfigurationRoot>();
-        var connectionString = config.GetConnectionString(nameof(ApplicationDbContext));
+        var routingConnectionString = config.GetConnectionString("RoutingDb");
 
-        return new(CreateDbContext, new(GetHttpClient(), Console.WriteLine));
+        var shardFactory = ServiceProvider.GetRequiredService<ShardedDbContextFactory>();
+        var shardRouter = ServiceProvider.GetRequiredService<ShardRouter>();
 
-        ApplicationDbContext CreateDbContext()
+        return new(shardFactory, shardRouter, CreateRoutingDbContext, new(GetHttpClient(), Console.WriteLine));
+
+        RoutingDbContext CreateRoutingDbContext()
         {
-            DbContextOptionsBuilder<ApplicationDbContext> optionsBuilder = new();
-            optionsBuilder.UseNpgsql(connectionString);
+            DbContextOptionsBuilder<RoutingDbContext> optionsBuilder = new();
+            optionsBuilder.UseNpgsql(routingConnectionString);
             optionsBuilder.UseSnakeCaseNamingConvention();
             optionsBuilder.EnableSensitiveDataLogging();
-            var context = new ApplicationDbContext(optionsBuilder.Options);
-            return context;
+            return new(optionsBuilder.Options);
         }
     }
 
@@ -41,10 +45,37 @@ public class Integration
     }
 
     [OneTimeSetUp]
-    public void OneTimeSetUp()
+    public async Task OneTimeSetUp()
     {
-        // EmailSenderBackgroundService.Delay = TimeSpan.FromMilliseconds(217);
-        CustomWebApplicationFactory<Program> webHostBuilder = new();
+        _routingContainer = new PostgreSqlBuilder("postgres:17.6")
+            .WithDatabase("money_routing")
+            .Build();
+
+        _dundukContainer = new PostgreSqlBuilder("postgres:17.6")
+            .WithDatabase("money_dunduk")
+            .Build();
+
+        _fundukContainer = new PostgreSqlBuilder("postgres:17.6")
+            .WithDatabase("money_funduk")
+            .Build();
+
+        _burundukContainer = new PostgreSqlBuilder("postgres:17.6")
+            .WithDatabase("money_burunduk")
+            .Build();
+
+        await Task.WhenAll(_routingContainer.StartAsync(),
+            _dundukContainer.StartAsync(),
+            _fundukContainer.StartAsync(),
+            _burundukContainer.StartAsync());
+
+        CustomWebApplicationFactory<Program> webHostBuilder = new()
+        {
+            RoutingDb = _routingContainer.GetConnectionString(),
+            DundukDb = _dundukContainer.GetConnectionString(),
+            FundukDb = _fundukContainer.GetConnectionString(),
+            BurundukDb = _burundukContainer.GetConnectionString(),
+        };
+
         webHostBuilder.Server.PreserveExecutionContext = true;
 
         ServiceProvider = webHostBuilder.Services;
@@ -52,7 +83,7 @@ public class Integration
     }
 
     [OneTimeTearDown]
-    public void OneTimeTearDown()
+    public Task OneTimeTearDown()
     {
         TestServer.Dispose();
 
@@ -60,5 +91,17 @@ public class Integration
         {
             httpClient.Dispose();
         }
+
+        return Task.WhenAll(_routingContainer.DisposeAsync().AsTask(),
+            _dundukContainer.DisposeAsync().AsTask(),
+            _fundukContainer.DisposeAsync().AsTask(),
+            _burundukContainer.DisposeAsync().AsTask());
     }
+
+#pragma warning disable NUnit1032
+    private static PostgreSqlContainer _routingContainer = null!;
+    private static PostgreSqlContainer _dundukContainer = null!;
+    private static PostgreSqlContainer _fundukContainer = null!;
+    private static PostgreSqlContainer _burundukContainer = null!;
+#pragma warning restore NUnit1032
 }

@@ -1,18 +1,44 @@
-﻿using Money.ApiClient;
+using Money.ApiClient;
 using Money.Data;
+using Money.Data.Sharding;
 
 namespace Money.Api.Tests.TestTools;
 
-public class DatabaseClient(Func<ApplicationDbContext> createWebDbContext, MoneyClient apiClient)
+public sealed class DatabaseClient(
+    ShardedDbContextFactory shardFactory,
+    ShardRouter shardRouter,
+    Func<RoutingDbContext> createRoutingDbContext,
+    MoneyClient apiClient)
 {
-    private static readonly object LockObject = new();
+    private static readonly Lock LockObject = new();
 
     private List<TestObject>? _testObjects = [];
     private ApplicationDbContext? _context;
+    private string? _shardName;
 
-    public Func<ApplicationDbContext> CreateApplicationDbContext { get; } = createWebDbContext;
-    public ApplicationDbContext Context => _context ??= CreateApplicationDbContext();
+    public ShardedDbContextFactory ShardFactory { get; } = shardFactory;
+    public ShardRouter ShardRouter { get; } = shardRouter;
+    public Func<RoutingDbContext> CreateRoutingDbContext { get; } = createRoutingDbContext;
     public MoneyClient ApiClient { get; } = apiClient;
+
+    public ApplicationDbContext Context => _context ??= CreateApplicationDbContext();
+
+    public ApplicationDbContext CreateApplicationDbContext()
+    {
+        return ShardFactory.Create(_shardName ?? throw new InvalidOperationException("Шард не определён. Сначала зарегистрируйте пользователя."));
+    }
+
+    public void SetShard(string shardName)
+    {
+        if (_shardName == shardName)
+        {
+            return;
+        }
+
+        _context?.Dispose();
+        _context = null;
+        _shardName = shardName;
+    }
 
     public TestUser WithUser()
     {

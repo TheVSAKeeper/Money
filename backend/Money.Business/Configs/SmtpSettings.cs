@@ -1,5 +1,3 @@
-using System.Security;
-
 namespace Money.Business.Configs;
 
 public class SmtpSettings

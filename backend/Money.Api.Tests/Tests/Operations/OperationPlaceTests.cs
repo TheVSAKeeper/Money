@@ -53,12 +53,11 @@ public class OperationPlaceTests
     }
 
     /// <summary>
-    /// Занулили место у единственной операции, место удалилось.
+    /// Одна операция имеет уникальное место.
+    /// После удаления операции, оно удалится.
     /// </summary>
     [Test]
-    [TestCase("")]
-    [TestCase(null)]
-    public async Task RemovePlaceAfterSetOperationZeroPlaceTest(string? updatedPlace)
+    public async Task DeletePlaceAfterDeleteOperationTest()
     {
         var category = _user.WithCategory();
         _dbClient.Save();
@@ -72,8 +71,7 @@ public class OperationPlaceTests
         };
 
         var operationId = await _apiClient.Operations.Create(request).IsSuccessWithContent();
-        request.Place = updatedPlace;
-        await _apiClient.Operations.Update(operationId, request).IsSuccess();
+        await _apiClient.Operations.Delete(operationId).IsSuccess();
 
         var dbPlaces = _dbClient.CreateApplicationDbContext()
             .Places
@@ -123,6 +121,73 @@ public class OperationPlaceTests
     }
 
     /// <summary>
+    /// Создадим три плейса и проверим параметры offset и count.
+    /// </summary>
+    [Test]
+    public async Task GetPlacesOffsetAndCountTest()
+    {
+        _user.WithCategory();
+        var place = _user.WithPlace();
+        _user.WithPlace();
+        _user.WithPlace();
+        _dbClient.Save();
+
+        var apiPlaces = await _apiClient.Operations.GetPlaces(0, 1, place.Name[..1]).IsSuccessWithContent();
+        Assert.That(apiPlaces, Is.Not.Null);
+        Assert.That(apiPlaces, Has.Length.EqualTo(1));
+
+        apiPlaces = await _apiClient.Operations.GetPlaces(1, 10, place.Name[..1]).IsSuccessWithContent();
+        Assert.That(apiPlaces, Is.Not.Null);
+        Assert.That(apiPlaces, Has.Length.EqualTo(2));
+
+        apiPlaces = await _apiClient.Operations.GetPlaces(2, 10, place.Name[..1]).IsSuccessWithContent();
+        Assert.That(apiPlaces, Is.Not.Null);
+        Assert.That(apiPlaces, Has.Length.EqualTo(1));
+    }
+
+    /// <summary>
+    /// Если фильтр пустой, на первой позиции будем последнее используемое место.
+    /// </summary>
+    [Test]
+    public async Task GetPlacesOrderByLastUsedDateTest()
+    {
+        _user.WithCategory();
+        _user.WithPlace().SetLastUsedDate(DateTime.Now.AddMinutes(-1));
+        var place3 = _user.WithPlace().SetLastUsedDate(DateTime.Now.AddMinutes(-2));
+        var place1 = _user.WithPlace().SetLastUsedDate(DateTime.Now);
+        _dbClient.Save();
+
+        var apiPlaces = await _apiClient.Operations.GetPlaces(0, 100).IsSuccessWithContent();
+        Assert.That(apiPlaces, Is.Not.Null);
+        Assert.That(apiPlaces, Has.Length.EqualTo(3));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(apiPlaces[0], Is.EqualTo(place1.Name));
+            Assert.That(apiPlaces[2], Is.EqualTo(place3.Name));
+        });
+    }
+
+    /// <summary>
+    /// Создадим три плейса и проверим параметры offset и count.
+    /// </summary>
+    [Test]
+    public async Task GetPlacesWithEmptySearchTest()
+    {
+        _user.WithCategory();
+        _user.WithPlace();
+        _dbClient.Save();
+
+        var apiPlaces = await _apiClient.Operations.GetPlaces(0, 1).IsSuccessWithContent();
+        Assert.That(apiPlaces, Is.Not.Null);
+        Assert.That(apiPlaces, Has.Length.EqualTo(1));
+
+        apiPlaces = await _apiClient.Operations.GetPlaces(0, 1, "").IsSuccessWithContent();
+        Assert.That(apiPlaces, Is.Not.Null);
+        Assert.That(apiPlaces, Has.Length.EqualTo(1));
+    }
+
+    /// <summary>
     /// Две операции имеют одно место, после зануления места всех операций, место исчезло.
     /// </summary>
     [Test]
@@ -159,11 +224,12 @@ public class OperationPlaceTests
     }
 
     /// <summary>
-    /// Одна операция имеет уникальное место.
-    /// После удаления операции, оно удалится.
+    /// Занулили место у единственной операции, место удалилось.
     /// </summary>
     [Test]
-    public async Task DeletePlaceAfterDeleteOperationTest()
+    [TestCase("")]
+    [TestCase(null)]
+    public async Task RemovePlaceAfterSetOperationZeroPlaceTest(string? updatedPlace)
     {
         var category = _user.WithCategory();
         _dbClient.Save();
@@ -177,7 +243,8 @@ public class OperationPlaceTests
         };
 
         var operationId = await _apiClient.Operations.Create(request).IsSuccessWithContent();
-        await _apiClient.Operations.Delete(operationId).IsSuccess();
+        request.Place = updatedPlace;
+        await _apiClient.Operations.Update(operationId, request).IsSuccess();
 
         var dbPlaces = _dbClient.CreateApplicationDbContext()
             .Places
@@ -188,41 +255,6 @@ public class OperationPlaceTests
         {
             Assert.That(dbPlaces, Has.Length.EqualTo(1));
             Assert.That(dbPlaces[0].IsDeleted, Is.True);
-        });
-    }
-
-    /// <summary>
-    /// Одна операция имеет уникальное место.
-    /// После удаления операции, оно удалится.
-    /// После восстановления операции должно восстановиться.
-    /// </summary>
-    [Test]
-    public async Task RestorePlaceAfterRestoreOperationTest()
-    {
-        var category = _user.WithCategory();
-        _dbClient.Save();
-
-        var request = new OperationsClient.SaveRequest
-        {
-            CategoryId = category.Id,
-            Sum = 1,
-            Date = DateTime.Now,
-            Place = "place1",
-        };
-
-        var operationId = await _apiClient.Operations.Create(request).IsSuccessWithContent();
-        await _apiClient.Operations.Delete(operationId).IsSuccess();
-        await _apiClient.Operations.Restore(operationId).IsSuccess();
-
-        var dbPlaces = _dbClient.CreateApplicationDbContext()
-            .Places
-            .Where(x => x.UserId == _user.Id)
-            .ToArray();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(dbPlaces, Has.Length.EqualTo(1));
-            Assert.That(dbPlaces[0].IsDeleted, Is.False);
         });
     }
 
@@ -263,69 +295,37 @@ public class OperationPlaceTests
     }
 
     /// <summary>
-    /// Создадим три плейса и проверим параметры offset и count.
+    /// Одна операция имеет уникальное место.
+    /// После удаления операции, оно удалится.
+    /// После восстановления операции должно восстановиться.
     /// </summary>
     [Test]
-    public async Task GetPlacesOffsetAndCountTest()
+    public async Task RestorePlaceAfterRestoreOperationTest()
     {
-        _user.WithCategory();
-        var place = _user.WithPlace();
-        _user.WithPlace();
-        _user.WithPlace();
+        var category = _user.WithCategory();
         _dbClient.Save();
 
-        var apiPlaces = await _apiClient.Operations.GetPlaces(0, 1, place.Name[..1]).IsSuccessWithContent();
-        Assert.That(apiPlaces, Is.Not.Null);
-        Assert.That(apiPlaces, Has.Length.EqualTo(1));
+        var request = new OperationsClient.SaveRequest
+        {
+            CategoryId = category.Id,
+            Sum = 1,
+            Date = DateTime.Now,
+            Place = "place1",
+        };
 
-        apiPlaces = await _apiClient.Operations.GetPlaces(1, 10, place.Name[..1]).IsSuccessWithContent();
-        Assert.That(apiPlaces, Is.Not.Null);
-        Assert.That(apiPlaces, Has.Length.EqualTo(2));
+        var operationId = await _apiClient.Operations.Create(request).IsSuccessWithContent();
+        await _apiClient.Operations.Delete(operationId).IsSuccess();
+        await _apiClient.Operations.Restore(operationId).IsSuccess();
 
-        apiPlaces = await _apiClient.Operations.GetPlaces(2, 10, place.Name[..1]).IsSuccessWithContent();
-        Assert.That(apiPlaces, Is.Not.Null);
-        Assert.That(apiPlaces, Has.Length.EqualTo(1));
-    }
-
-    /// <summary>
-    /// Создадим три плейса и проверим параметры offset и count.
-    /// </summary>
-    [Test]
-    public async Task GetPlacesWithEmptySearchTest()
-    {
-        _user.WithCategory();
-        _user.WithPlace();
-        _dbClient.Save();
-
-        var apiPlaces = await _apiClient.Operations.GetPlaces(0, 1).IsSuccessWithContent();
-        Assert.That(apiPlaces, Is.Not.Null);
-        Assert.That(apiPlaces, Has.Length.EqualTo(1));
-
-        apiPlaces = await _apiClient.Operations.GetPlaces(0, 1, "").IsSuccessWithContent();
-        Assert.That(apiPlaces, Is.Not.Null);
-        Assert.That(apiPlaces, Has.Length.EqualTo(1));
-    }
-
-    /// <summary>
-    /// Если фильтр пустой, на первой позиции будем последнее используемое место.
-    /// </summary>
-    [Test]
-    public async Task GetPlacesOrderByLastUsedDateTest()
-    {
-        _user.WithCategory();
-        _user.WithPlace().SetLastUsedDate(DateTime.Now.AddMinutes(-1));
-        var place3 = _user.WithPlace().SetLastUsedDate(DateTime.Now.AddMinutes(-2));
-        var place1 = _user.WithPlace().SetLastUsedDate(DateTime.Now);
-        _dbClient.Save();
-
-        var apiPlaces = await _apiClient.Operations.GetPlaces(0, 100).IsSuccessWithContent();
-        Assert.That(apiPlaces, Is.Not.Null);
-        Assert.That(apiPlaces, Has.Length.EqualTo(3));
+        var dbPlaces = _dbClient.CreateApplicationDbContext()
+            .Places
+            .Where(x => x.UserId == _user.Id)
+            .ToArray();
 
         Assert.Multiple(() =>
         {
-            Assert.That(apiPlaces[0], Is.EqualTo(place1.Name));
-            Assert.That(apiPlaces[2], Is.EqualTo(place3.Name));
+            Assert.That(dbPlaces, Has.Length.EqualTo(1));
+            Assert.That(dbPlaces[0].IsDeleted, Is.False);
         });
     }
 }

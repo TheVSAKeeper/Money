@@ -1,10 +1,9 @@
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Money.Data.Entities;
 using System.Reflection;
 
 namespace Money.Data;
 
-public class ApplicationDbContext(DbContextOptions options) : IdentityDbContext<ApplicationUser, ApplicationRole, Guid>(options)
+public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : DbContext(options)
 {
     public DbSet<Category> Categories { get; set; } = null!;
     public DbSet<DomainUser> DomainUsers { get; set; } = null!;
@@ -17,10 +16,12 @@ public class ApplicationDbContext(DbContextOptions options) : IdentityDbContext<
     public DbSet<Car> Cars { get; set; } = null!;
     public DbSet<CarEvent> CarEvents { get; set; } = null!;
 
-
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
-        builder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+        builder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly(),
+            t => t.Namespace?.StartsWith("Money.Data.Entities", StringComparison.Ordinal) == true
+                 && t != typeof(ApplicationUserConfiguration)
+                 && t != typeof(ShardMappingConfiguration));
     }
 }

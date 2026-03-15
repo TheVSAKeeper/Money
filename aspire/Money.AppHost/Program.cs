@@ -1,18 +1,34 @@
+using Projects;
+
 var builder = DistributedApplication.CreateBuilder(args);
 
-var postgres = builder.AddPostgres("postgres")
-    .WithPgAdmin()
-    .WithDataVolume();
+var password = builder.AddParameter("postgres-password");
 
-var db = postgres.AddDatabase("ApplicationDbContext", databaseName: "money_db");
+var routing = builder.AddPostgres("routing", password: password).WithPgAdmin().WithDataVolume();
+var routingDb = routing.AddDatabase("RoutingDb", "money_routing");
 
-var api = builder.AddProject<Projects.Money_Api>("api")
-    .WithReference(db)
-    .WaitFor(db);
+var dunduk = builder.AddPostgres("dunduk", password: password).WithDataVolume();
+var dundukDb = dunduk.AddDatabase("DundukDb", "money_dunduk");
 
-builder.AddProject<Projects.Money_Web>("frontend")
+var funduk = builder.AddPostgres("funduk", password: password).WithDataVolume();
+var fundukDb = funduk.AddDatabase("FundukDb", "money_funduk");
+
+var burunduk = builder.AddPostgres("burunduk", password: password).WithDataVolume();
+var burundukDb = burunduk.AddDatabase("BurundukDb", "money_burunduk");
+
+var api = builder.AddProject<Money_Api>("api")
+    .WithReference(routingDb)
+    .WaitFor(routingDb)
+    .WithReference(dundukDb)
+    .WaitFor(dundukDb)
+    .WithReference(fundukDb)
+    .WaitFor(fundukDb)
+    .WithReference(burundukDb)
+    .WaitFor(burundukDb);
+
+builder.AddProject<Money_Web>("frontend")
     .WithReference(api)
     .WithExternalHttpEndpoints()
     .WaitFor(api);
 
-builder.Build().Run();
+await builder.Build().RunAsync();
