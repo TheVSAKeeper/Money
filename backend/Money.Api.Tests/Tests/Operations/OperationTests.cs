@@ -21,89 +21,63 @@ public class OperationTests
     }
 
     [Test]
-    public async Task GetTest()
+    public async Task CreateTest()
     {
         var category = _user.WithCategory();
-
-        TestOperation[] operations =
-        [
-            category.WithOperation(),
-            category.WithOperation(),
-            category.WithOperation(),
-        ];
-
         _dbClient.Save();
 
-        var apiOperations = await _apiClient.Operations.Get().IsSuccessWithContent();
-        Assert.That(apiOperations, Is.Not.Null);
-        Assert.That(apiOperations, Has.Length.GreaterThanOrEqualTo(operations.Length));
+        var operation = _user.WithOperation();
+        var place = _user.WithPlace();
 
-        var testCategories = operations.ExceptBy(apiOperations.Select(x => x.Id), operation => operation.Id).ToArray();
-        Assert.That(testCategories, Is.Not.Null);
-        Assert.That(testCategories, Is.Empty);
+        var request = new OperationsClient.SaveRequest
+        {
+            CategoryId = category.Id,
+            Sum = operation.Sum,
+            Date = operation.Date,
+            Comment = operation.Comment,
+            Place = place.Name,
+        };
+
+        var createdId = await _apiClient.Operations.Create(request).IsSuccessWithContent();
+        var dbOperation = await _dbClient.CreateApplicationDbContext().Operations.FirstOrDefaultAsync(_user.Id, createdId);
+        var dbPlace = await _dbClient.CreateApplicationDbContext().Places.FirstOrDefaultAsync(x => x.UserId == _user.Id && x.Name == place.Name);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(dbOperation, Is.Not.Null);
+            Assert.That(dbPlace, Is.Not.Null);
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(dbOperation.Date, Is.EqualTo(request.Date));
+            Assert.That(dbOperation.Sum, Is.EqualTo(request.Sum));
+            Assert.That(dbOperation.Comment, Is.EqualTo(request.Comment));
+            Assert.That(dbOperation.CategoryId, Is.EqualTo(request.CategoryId));
+            Assert.That(dbPlace.Name, Is.EqualTo(request.Place));
+        });
     }
 
     [Test]
-    public async Task GetByDateFromTest()
+    public async Task DeleteTest()
     {
-        var category = _user.WithCategory();
-
-        category.WithOperation().SetDate(DateTime.Now.Date.AddMonths(1));
-        category.WithOperation();
-
+        var operation = _user.WithOperation();
         _dbClient.Save();
 
-        var filter = new OperationsClient.OperationFilterDto
-        {
-            DateFrom = DateTime.Now.Date.AddMonths(1),
-        };
+        await _apiClient.Operations.Delete(operation.Id).IsSuccess();
 
-        var apiOperations = await _apiClient.Operations.Get(filter).IsSuccessWithContent();
-        Assert.That(apiOperations, Is.Not.Null);
-        Assert.That(apiOperations, Has.Length.EqualTo(1));
-        Assert.That(apiOperations[0].Date, Is.GreaterThanOrEqualTo(DateTime.Now.Date));
-    }
+        await using var context = _dbClient.CreateApplicationDbContext();
 
-    [Test]
-    public async Task GetByDateToTest()
-    {
-        var category = _user.WithCategory();
+        var dbOperation = await context.Operations.FirstOrDefaultAsync(_user.Id, operation.Id);
 
-        category.WithOperation().SetDate(DateTime.Now.Date.AddMonths(1));
-        category.WithOperation().SetDate(DateTime.Now.Date);
+        Assert.That(dbOperation, Is.Null);
 
-        _dbClient.Save();
+        dbOperation = await context.Operations
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(_user.Id, operation.Id);
 
-        var filter = new OperationsClient.OperationFilterDto
-        {
-            DateTo = DateTime.Now.Date.AddDays(1),
-        };
-
-        var apiOperations = await _apiClient.Operations.Get(filter).IsSuccessWithContent();
-        Assert.That(apiOperations, Is.Not.Null);
-        Assert.That(apiOperations, Has.Length.EqualTo(1));
-        Assert.That(apiOperations[0].Date, Is.GreaterThanOrEqualTo(DateTime.Now.Date));
-        Assert.That(apiOperations[0].Date, Is.LessThan(DateTime.Now.Date.AddDays(1)));
-    }
-
-    [Test]
-    public async Task GetByDateRangeTest()
-    {
-        var category = _user.WithCategory();
-        category.WithOperation().SetDate(DateTime.Now.Date.AddDays(-1));
-        category.WithOperation().SetDate(DateTime.Now.Date);
-        category.WithOperation().SetDate(DateTime.Now.Date.AddDays(1));
-        _dbClient.Save();
-
-        var filter = new OperationsClient.OperationFilterDto
-        {
-            DateFrom = DateTime.Now.Date.AddDays(-1),
-            DateTo = DateTime.Now.Date.AddDays(2),
-        };
-
-        var apiOperations = await _apiClient.Operations.Get(filter).IsSuccessWithContent();
-        Assert.That(apiOperations, Is.Not.Null);
-        Assert.That(apiOperations, Has.Length.EqualTo(3));
+        Assert.That(dbOperation, Is.Not.Null);
+        Assert.That(dbOperation.IsDeleted, Is.True);
     }
 
     [Test]
@@ -143,58 +117,66 @@ public class OperationTests
     }
 
     [Test]
-    public async Task GetByPlaceTest()
+    public async Task GetByDateFromTest()
     {
-        var place = _user.WithPlace();
         var category = _user.WithCategory();
-        var operation = category.WithOperation();
-        operation.SetPlace(place);
+
+        category.WithOperation().SetDate(DateTime.Now.Date.AddMonths(1));
         category.WithOperation();
+
         _dbClient.Save();
 
         var filter = new OperationsClient.OperationFilterDto
         {
-            Place = place.Name,
+            DateFrom = DateTime.Now.Date.AddMonths(1),
         };
 
         var apiOperations = await _apiClient.Operations.Get(filter).IsSuccessWithContent();
         Assert.That(apiOperations, Is.Not.Null);
         Assert.That(apiOperations, Has.Length.EqualTo(1));
-        Assert.That(apiOperations[0].Place, Is.EqualTo(place.Name));
+        Assert.That(apiOperations[0].Date, Is.GreaterThanOrEqualTo(DateTime.Now.Date));
     }
 
     [Test]
-    public async Task GetByMultipleCategoryIdsTest()
+    public async Task GetByDateRangeTest()
     {
-        var category1 = _user.WithCategory();
-        var category2 = _user.WithCategory();
-        category1.WithOperation();
-        category2.WithOperation();
+        var category = _user.WithCategory();
+        category.WithOperation().SetDate(DateTime.Now.Date.AddDays(-1));
+        category.WithOperation().SetDate(DateTime.Now.Date);
+        category.WithOperation().SetDate(DateTime.Now.Date.AddDays(1));
         _dbClient.Save();
 
         var filter = new OperationsClient.OperationFilterDto
         {
-            CategoryIds = [category1.Id, category2.Id],
+            DateFrom = DateTime.Now.Date.AddDays(-1),
+            DateTo = DateTime.Now.Date.AddDays(2),
         };
 
         var apiOperations = await _apiClient.Operations.Get(filter).IsSuccessWithContent();
         Assert.That(apiOperations, Is.Not.Null);
-        Assert.That(apiOperations, Has.Length.EqualTo(2));
+        Assert.That(apiOperations, Has.Length.EqualTo(3));
     }
 
     [Test]
-    public async Task GetNoOperationsTest()
+    public async Task GetByDateToTest()
     {
+        var category = _user.WithCategory();
+
+        category.WithOperation().SetDate(DateTime.Now.Date.AddMonths(1));
+        category.WithOperation().SetDate(DateTime.Now.Date);
+
         _dbClient.Save();
 
         var filter = new OperationsClient.OperationFilterDto
         {
-            DateFrom = DateTime.Now.AddDays(1),
+            DateTo = DateTime.Now.Date.AddDays(1),
         };
 
         var apiOperations = await _apiClient.Operations.Get(filter).IsSuccessWithContent();
         Assert.That(apiOperations, Is.Not.Null);
-        Assert.That(apiOperations, Is.Empty);
+        Assert.That(apiOperations, Has.Length.EqualTo(1));
+        Assert.That(apiOperations[0].Date, Is.GreaterThanOrEqualTo(DateTime.Now.Date));
+        Assert.That(apiOperations[0].Date, Is.LessThan(DateTime.Now.Date.AddDays(1)));
     }
 
     [Test]
@@ -219,80 +201,139 @@ public class OperationTests
     }
 
     [Test]
-    public async Task CreateTest()
+    public async Task GetByMultipleCategoryIdsTest()
     {
-        var category = _user.WithCategory();
+        var category1 = _user.WithCategory();
+        var category2 = _user.WithCategory();
+        category1.WithOperation();
+        category2.WithOperation();
         _dbClient.Save();
 
-        var operation = _user.WithOperation();
-        var place = _user.WithPlace();
-
-        var request = new OperationsClient.SaveRequest
+        var filter = new OperationsClient.OperationFilterDto
         {
-            CategoryId = category.Id,
-            Sum = operation.Sum,
-            Date = operation.Date,
-            Comment = operation.Comment,
-            Place = place.Name,
+            CategoryIds = [category1.Id, category2.Id],
         };
 
-        var createdId = await _apiClient.Operations.Create(request).IsSuccessWithContent();
-        var dbOperation = await _dbClient.CreateApplicationDbContext().Operations.FirstOrDefaultAsync(_user.Id, createdId);
-        var dbPlace = await _dbClient.CreateApplicationDbContext().Places.FirstOrDefaultAsync(x => x.UserId == _user.Id && x.Name == place.Name);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(dbOperation, Is.Not.Null);
-            Assert.That(dbPlace, Is.Not.Null);
-        });
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(dbOperation.Date, Is.EqualTo(request.Date));
-            Assert.That(dbOperation.Sum, Is.EqualTo(request.Sum));
-            Assert.That(dbOperation.Comment, Is.EqualTo(request.Comment));
-            Assert.That(dbOperation.CategoryId, Is.EqualTo(request.CategoryId));
-            Assert.That(dbPlace.Name, Is.EqualTo(request.Place));
-        });
+        var apiOperations = await _apiClient.Operations.Get(filter).IsSuccessWithContent();
+        Assert.That(apiOperations, Is.Not.Null);
+        Assert.That(apiOperations, Has.Length.EqualTo(2));
     }
 
     [Test]
-    public async Task UpdateTest()
+    public async Task GetByPlaceTest()
     {
-        var operation = _user.WithOperation();
-        var updatedCategory = _user.WithCategory();
+        var place = _user.WithPlace();
+        var category = _user.WithCategory();
+        var operation = category.WithOperation();
+        operation.SetPlace(place);
+        category.WithOperation();
         _dbClient.Save();
 
-        var place = _user.WithPlace();
-        var updatedOperation = _user.WithOperation();
-
-        var request = new OperationsClient.SaveRequest
+        var filter = new OperationsClient.OperationFilterDto
         {
-            Comment = updatedOperation.Comment,
-            CategoryId = updatedCategory.Id,
-            Date = updatedOperation.Date,
             Place = place.Name,
-            Sum = updatedOperation.Sum,
         };
 
-        await _apiClient.Operations.Update(operation.Id, request).IsSuccess();
-        var dbOperation = await _dbClient.CreateApplicationDbContext().Operations.FirstOrDefaultAsync(_user.Id, operation.Id);
-        var dbPlace = await _dbClient.CreateApplicationDbContext().Places.FirstOrDefaultAsync(x => x.UserId == _user.Id && x.Name == place.Name);
+        var apiOperations = await _apiClient.Operations.Get(filter).IsSuccessWithContent();
+        Assert.That(apiOperations, Is.Not.Null);
+        Assert.That(apiOperations, Has.Length.EqualTo(1));
+        Assert.That(apiOperations[0].Place, Is.EqualTo(place.Name));
+    }
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(dbOperation, Is.Not.Null);
-            Assert.That(dbPlace, Is.Not.Null);
-        });
+    [Test]
+    public async Task GetNoOperationsTest()
+    {
+        _dbClient.Save();
 
-        Assert.Multiple(() =>
+        var filter = new OperationsClient.OperationFilterDto
         {
-            Assert.That(dbOperation.Date, Is.EqualTo(request.Date));
-            Assert.That(dbOperation.Sum, Is.EqualTo(request.Sum));
-            Assert.That(dbOperation.Comment, Is.EqualTo(request.Comment));
-            Assert.That(dbOperation.CategoryId, Is.EqualTo(request.CategoryId));
-            Assert.That(dbPlace.Name, Is.EqualTo(request.Place));
-        });
+            DateFrom = DateTime.Now.AddDays(1),
+        };
+
+        var apiOperations = await _apiClient.Operations.Get(filter).IsSuccessWithContent();
+        Assert.That(apiOperations, Is.Not.Null);
+        Assert.That(apiOperations, Is.Empty);
+    }
+
+    [Test]
+    public async Task GetTest()
+    {
+        var category = _user.WithCategory();
+
+        TestOperation[] operations =
+        [
+            category.WithOperation(),
+            category.WithOperation(),
+            category.WithOperation(),
+        ];
+
+        _dbClient.Save();
+
+        var apiOperations = await _apiClient.Operations.Get().IsSuccessWithContent();
+        Assert.That(apiOperations, Is.Not.Null);
+        Assert.That(apiOperations, Has.Length.GreaterThanOrEqualTo(operations.Length));
+
+        var testCategories = operations.ExceptBy(apiOperations.Select(x => x.Id), operation => operation.Id).ToArray();
+        Assert.That(testCategories, Is.Not.Null);
+        Assert.That(testCategories, Is.Empty);
+    }
+
+    [Test]
+    public async Task RestoreTest()
+    {
+        var operation = _user.WithOperation().SetIsDeleted();
+        _dbClient.Save();
+
+        await _apiClient.Operations.Restore(operation.Id).IsSuccess();
+
+        await using var context = _dbClient.CreateApplicationDbContext();
+
+        var dbOperation = await context.Operations.FirstOrDefaultAsync(_user.Id, operation.Id);
+        Assert.That(dbOperation, Is.Not.Null);
+        Assert.That(dbOperation.IsDeleted, Is.False);
+    }
+
+    [Test]
+    public async Task UpdateBatchReversSumTest()
+    {
+        var initialCategory = _user.WithCategory().SetOperationType(OperationTypes.Income);
+
+        TestOperation[] operationsToUpdate =
+        [
+            initialCategory.WithOperation().SetSum(-217),
+            initialCategory.WithOperation().SetSum(217),
+            initialCategory.WithOperation().SetSum(-217),
+        ];
+
+        var targetCategory = _user.WithCategory().SetOperationType(OperationTypes.Costs);
+        _dbClient.Save();
+
+        var updateRequest = new OperationsClient.UpdateOperationsBatchRequest
+        {
+            OperationIds = operationsToUpdate.Select(x => x.Id).ToList(),
+            CategoryId = targetCategory.Id,
+        };
+
+        await _apiClient.Operations.UpdateBatch(updateRequest).IsSuccessWithContent();
+
+        var targetCategoryOperations = await _dbClient.CreateApplicationDbContext()
+            .Operations
+            .IsUserEntity(_user.Id)
+            .Where(x => x.CategoryId == targetCategory.Id)
+            .ToListAsync();
+
+        Assert.That(targetCategoryOperations, Has.Count.EqualTo(operationsToUpdate.Length));
+
+        for (var i = 0; i < targetCategoryOperations.Count; i++)
+        {
+            var operation = targetCategoryOperations[i];
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(operation.CategoryId, Is.EqualTo(targetCategory.Id));
+                Assert.That(operation.Sum, Is.EqualTo(-operationsToUpdate[i].Sum));
+            });
+        }
     }
 
     [Test]
@@ -357,82 +398,41 @@ public class OperationTests
     }
 
     [Test]
-    public async Task UpdateBatchReversSumTest()
-    {
-        var initialCategory = _user.WithCategory().SetOperationType(OperationTypes.Income);
-
-        TestOperation[] operationsToUpdate =
-        [
-            initialCategory.WithOperation().SetSum(-217),
-            initialCategory.WithOperation().SetSum(217),
-            initialCategory.WithOperation().SetSum(-217),
-        ];
-
-        var targetCategory = _user.WithCategory().SetOperationType(OperationTypes.Costs);
-        _dbClient.Save();
-
-        var updateRequest = new OperationsClient.UpdateOperationsBatchRequest
-        {
-            OperationIds = operationsToUpdate.Select(x => x.Id).ToList(),
-            CategoryId = targetCategory.Id,
-        };
-
-        await _apiClient.Operations.UpdateBatch(updateRequest).IsSuccessWithContent();
-
-        var targetCategoryOperations = await _dbClient.CreateApplicationDbContext()
-            .Operations
-            .IsUserEntity(_user.Id)
-            .Where(x => x.CategoryId == targetCategory.Id)
-            .ToListAsync();
-
-        Assert.That(targetCategoryOperations, Has.Count.EqualTo(operationsToUpdate.Length));
-
-        for (var i = 0; i < targetCategoryOperations.Count; i++)
-        {
-            var operation = targetCategoryOperations[i];
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(operation.CategoryId, Is.EqualTo(targetCategory.Id));
-                Assert.That(operation.Sum, Is.EqualTo(-operationsToUpdate[i].Sum));
-            });
-        }
-    }
-
-    [Test]
-    public async Task DeleteTest()
+    public async Task UpdateTest()
     {
         var operation = _user.WithOperation();
+        var updatedCategory = _user.WithCategory();
         _dbClient.Save();
 
-        await _apiClient.Operations.Delete(operation.Id).IsSuccess();
+        var place = _user.WithPlace();
+        var updatedOperation = _user.WithOperation();
 
-        await using var context = _dbClient.CreateApplicationDbContext();
+        var request = new OperationsClient.SaveRequest
+        {
+            Comment = updatedOperation.Comment,
+            CategoryId = updatedCategory.Id,
+            Date = updatedOperation.Date,
+            Place = place.Name,
+            Sum = updatedOperation.Sum,
+        };
 
-        var dbOperation = await context.Operations.FirstOrDefaultAsync(_user.Id, operation.Id);
+        await _apiClient.Operations.Update(operation.Id, request).IsSuccess();
+        var dbOperation = await _dbClient.CreateApplicationDbContext().Operations.FirstOrDefaultAsync(_user.Id, operation.Id);
+        var dbPlace = await _dbClient.CreateApplicationDbContext().Places.FirstOrDefaultAsync(x => x.UserId == _user.Id && x.Name == place.Name);
 
-        Assert.That(dbOperation, Is.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(dbOperation, Is.Not.Null);
+            Assert.That(dbPlace, Is.Not.Null);
+        });
 
-        dbOperation = await context.Operations
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(_user.Id, operation.Id);
-
-        Assert.That(dbOperation, Is.Not.Null);
-        Assert.That(dbOperation.IsDeleted, Is.EqualTo(true));
-    }
-
-    [Test]
-    public async Task RestoreTest()
-    {
-        var operation = _user.WithOperation().SetIsDeleted();
-        _dbClient.Save();
-
-        await _apiClient.Operations.Restore(operation.Id).IsSuccess();
-
-        await using var context = _dbClient.CreateApplicationDbContext();
-
-        var dbOperation = await context.Operations.FirstOrDefaultAsync(_user.Id, operation.Id);
-        Assert.That(dbOperation, Is.Not.Null);
-        Assert.That(dbOperation.IsDeleted, Is.EqualTo(false));
+        Assert.Multiple(() =>
+        {
+            Assert.That(dbOperation.Date, Is.EqualTo(request.Date));
+            Assert.That(dbOperation.Sum, Is.EqualTo(request.Sum));
+            Assert.That(dbOperation.Comment, Is.EqualTo(request.Comment));
+            Assert.That(dbOperation.CategoryId, Is.EqualTo(request.CategoryId));
+            Assert.That(dbPlace.Name, Is.EqualTo(request.Place));
+        });
     }
 }

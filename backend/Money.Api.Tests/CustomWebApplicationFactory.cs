@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Money.Business.Services;
+using StackExchange.Redis;
 
 namespace Money.Api.Tests;
 
@@ -12,6 +14,7 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProg
     public string? DundukDb { get; set; }
     public string? FundukDb { get; set; }
     public string? BurundukDb { get; set; }
+    public string? RedisConnectionString { get; set; }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -48,7 +51,23 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProg
             services.AddSingleton<IConfiguration>(configRoot);
             services.AddSingleton(configRoot);
             services.AddSingleton<IMailsService, TestMailsService>();
+
+            if (RedisConnectionString == null)
+            {
+                return;
+            }
+
+            var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IConnectionMultiplexer));
+
+            if (descriptor != null)
+            {
+                services.Remove(descriptor);
+            }
+
+            services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(RedisConnectionString));
         });
+
+        builder.ConfigureLogging(logging => logging.AddProvider(new NUnitLoggerProvider()));
 
         builder.UseConfiguration(configRoot);
         builder.UseContentRoot(Directory.GetCurrentDirectory());

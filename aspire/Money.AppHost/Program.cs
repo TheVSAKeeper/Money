@@ -16,6 +16,8 @@ var fundukDb = funduk.AddDatabase("FundukDb", "money_funduk");
 var burunduk = builder.AddPostgres("burunduk", password: password).WithDataVolume();
 var burundukDb = burunduk.AddDatabase("BurundukDb", "money_burunduk");
 
+var redis = builder.AddRedis("redis").WithRedisCommander().WithDataVolume();
+
 var api = builder.AddProject<Money_Api>("api")
     .WithReference(routingDb)
     .WaitFor(routingDb)
@@ -24,7 +26,9 @@ var api = builder.AddProject<Money_Api>("api")
     .WithReference(fundukDb)
     .WaitFor(fundukDb)
     .WithReference(burundukDb)
-    .WaitFor(burundukDb);
+    .WaitFor(burundukDb)
+    .WithReference(redis)
+    .WaitFor(redis);
 
 builder.AddProject<Money_Web>("frontend")
     .WithReference(api)

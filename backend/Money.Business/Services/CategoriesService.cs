@@ -1,3 +1,4 @@
+using Money.Business.Interfaces;
 using Money.Data.Extensions;
 
 namespace Money.Business.Services;
@@ -5,17 +6,25 @@ namespace Money.Business.Services;
 public class CategoriesService(
     RequestEnvironment environment,
     ApplicationDbContext context,
-    UsersService usersService)
+    UsersService usersService,
+    ICategoryCacheService categoryCache)
 {
     public async Task<IEnumerable<Category>> GetAsync(int? type = null, CancellationToken cancellationToken = default)
     {
-        var query = context.Categories
-            .IsUserEntity(environment.UserId);
+        var shardName = environment.ShardName!;
+        var userId = environment.UserId;
 
-        if (type != null)
+        var cached = await categoryCache.GetAsync(shardName, userId, cancellationToken);
+
+        if (cached != null)
         {
-            query = query.Where(x => x.TypeId == type);
+            return type == null
+                ? cached
+                : cached.Where(x => (int)x.OperationType == type).ToList();
         }
+
+        var query = context.Categories
+            .IsUserEntity(userId);
 
         var models = await query
             .OrderBy(x => x.Order == null)
@@ -24,7 +33,11 @@ public class CategoriesService(
             .Select(x => GetBusinessModel(x))
             .ToListAsync(cancellationToken);
 
-        return models;
+        await categoryCache.SetAsync(shardName, userId, models, cancellationToken);
+
+        return type == null
+            ? models
+            : models.Where(x => (int)x.OperationType == type).ToList();
     }
 
     public async Task<Category> GetByIdAsync(int id, CancellationToken cancellationToken = default)
@@ -55,6 +68,8 @@ public class CategoriesService(
 
         await context.Categories.AddAsync(entity, cancellationToken);
         await context.SaveChangesAsync(cancellationToken);
+
+        await categoryCache.InvalidateAsync(environment.ShardName!, environment.UserId, cancellationToken);
         return id;
     }
 
@@ -75,6 +90,7 @@ public class CategoriesService(
         entity.Order = model.Order;
 
         await context.SaveChangesAsync(cancellationToken);
+        await categoryCache.InvalidateAsync(environment.ShardName!, environment.UserId, cancellationToken);
     }
 
     public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
@@ -88,13 +104,14 @@ public class CategoriesService(
 
         entity.IsDeleted = true;
         await context.SaveChangesAsync(cancellationToken);
+        await categoryCache.InvalidateAsync(environment.ShardName!, environment.UserId, cancellationToken);
     }
 
     public async Task RestoreAsync(int id, CancellationToken cancellationToken = default)
     {
         var entity = await GetCategory(id);
 
-        if (entity.IsDeleted == false)
+        if (!entity.IsDeleted)
         {
             throw new BusinessException("Извините, но невозможно восстановить неудаленную сущность");
         }
@@ -111,6 +128,7 @@ public class CategoriesService(
 
         entity.IsDeleted = false;
         await context.SaveChangesAsync(cancellationToken);
+        await categoryCache.InvalidateAsync(environment.ShardName!, environment.UserId, cancellationToken);
         return;
 
         async Task<Data.Entities.Category> GetCategory(int categoryId)
@@ -149,6 +167,7 @@ public class CategoriesService(
 
         await context.Categories.AddRangeAsync(categories, cancellationToken);
         await context.SaveChangesAsync(cancellationToken);
+        await categoryCache.InvalidateAsync(environment.ShardName!, environment.UserId, cancellationToken);
     }
 
     private static Category GetBusinessModel(Data.Entities.Category model)
@@ -172,7 +191,7 @@ public class CategoriesService(
             throw new BusinessException("Извините, название слишком длинное");
         }
 
-        if (Enum.IsDefined(model.OperationType) == false)
+        if (!Enum.IsDefined(model.OperationType))
         {
             throw new BusinessException("Извините, неподдерживаемый тип категории");
         }
@@ -209,7 +228,7 @@ public class CategoriesService(
             .IsUserEntity(environment.UserId, parentId)
             .AnyAsync(x => x.TypeId == operationType, cancellationToken);
 
-        if (parentExists == false)
+        if (!parentExists)
         {
             throw new BusinessException("Извините, но родительская категория не найдена. Пожалуйста, проверьте правильность введенных данных.");
         }

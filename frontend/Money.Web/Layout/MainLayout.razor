@@ -1,5 +1,6 @@
-﻿@using Microsoft.AspNetCore.Components.WebAssembly.Hosting
-@inherits LayoutComponentBase
+﻿@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.WebAssembly.Hosting
+@implements IAsyncDisposable
 
 <MudThemeProvider IsDarkMode="@_appSettings.IsDarkMode"
                   @ref="@_mudThemeProvider"

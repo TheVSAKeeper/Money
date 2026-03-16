@@ -94,7 +94,7 @@ public class ShardRoutingTests
             .Distinct()
             .ToList();
 
-        Assert.That(shards.Count, Is.GreaterThan(1),
+        Assert.That(shards, Has.Count.GreaterThan(1),
             "Expected users to be distributed across multiple shards");
     }
 
@@ -117,11 +117,14 @@ public class ShardRoutingTests
             var hasUser = shardCtx.DomainUsers.Any(x => x.AuthUserId == authUser.Id);
             var hasCat = shardCtx.Categories.Any(x => x.UserId == user.Id && x.Name == category.Name);
 
-            Assert.That(hasUser, Is.EqualTo(shardName == expectedShard),
-                $"DomainUser on shard {shardName}: expected {shardName == expectedShard}");
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(hasUser, Is.EqualTo(shardName == expectedShard),
+                    $"DomainUser on shard {shardName}: expected {shardName == expectedShard}");
 
-            Assert.That(hasCat, Is.EqualTo(shardName == expectedShard),
-                $"Category on shard {shardName}: expected {shardName == expectedShard}");
+                Assert.That(hasCat, Is.EqualTo(shardName == expectedShard),
+                    $"Category on shard {shardName}: expected {shardName == expectedShard}");
+            }
         }
     }
 

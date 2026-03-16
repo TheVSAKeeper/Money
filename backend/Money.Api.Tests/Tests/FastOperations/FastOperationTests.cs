@@ -20,51 +20,6 @@ public class FastOperationTests
     }
 
     [Test]
-    public async Task GetTest()
-    {
-        var category = _user.WithCategory();
-
-        TestFastOperation[] operations =
-        [
-            category.WithFastOperation(),
-            category.WithFastOperation(),
-            category.WithFastOperation(),
-        ];
-
-        _dbClient.Save();
-
-        var apiOperations = await _apiClient.FastOperations.Get().IsSuccessWithContent();
-        Assert.That(apiOperations, Is.Not.Null);
-        Assert.That(apiOperations, Has.Length.GreaterThanOrEqualTo(operations.Length));
-
-        var testOperations = operations.ExceptBy(apiOperations.Select(x => x.Id), operation => operation.Id).ToArray();
-        Assert.That(testOperations, Is.Not.Null);
-        Assert.That(testOperations, Is.Empty);
-    }
-
-    [Test]
-    public async Task GetByIdTest()
-    {
-        var place = _user.WithPlace();
-        var operation = _user.WithFastOperation().SetOrder(217).SetPlace(place);
-        _dbClient.Save();
-
-        var apiOperation = await _apiClient.FastOperations.GetById(operation.Id).IsSuccessWithContent();
-
-        Assert.That(apiOperation, Is.Not.Null);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(apiOperation.Id, Is.EqualTo(operation.Id));
-            Assert.That(apiOperation.Comment, Is.EqualTo(operation.Comment));
-            Assert.That(apiOperation.CategoryId, Is.EqualTo(operation.Category.Id));
-            Assert.That(apiOperation.Name, Is.EqualTo(operation.Name));
-            Assert.That(apiOperation.Order, Is.EqualTo(operation.Order));
-            Assert.That(apiOperation.Place, Is.EqualTo(operation.Place.Name));
-        });
-    }
-
-    [Test]
     public async Task CreateTest()
     {
         var category = _user.WithCategory();
@@ -102,6 +57,88 @@ public class FastOperationTests
             Assert.That(dbOperation.CategoryId, Is.EqualTo(request.CategoryId));
             Assert.That(dbPlace.Name, Is.EqualTo(request.Place));
         });
+    }
+
+    [Test]
+    public async Task DeleteTest()
+    {
+        var operation = _user.WithFastOperation();
+        _dbClient.Save();
+
+        await _apiClient.FastOperations.Delete(operation.Id).IsSuccess();
+
+        await using var context = _dbClient.CreateApplicationDbContext();
+
+        var dbOperation = await context.FastOperations.FirstOrDefaultAsync(_user.Id, operation.Id);
+
+        Assert.That(dbOperation, Is.Null);
+
+        dbOperation = await context.FastOperations
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(_user.Id, operation.Id);
+
+        Assert.That(dbOperation, Is.Not.Null);
+        Assert.That(dbOperation.IsDeleted, Is.True);
+    }
+
+    [Test]
+    public async Task GetByIdTest()
+    {
+        var place = _user.WithPlace();
+        var operation = _user.WithFastOperation().SetOrder(217).SetPlace(place);
+        _dbClient.Save();
+
+        var apiOperation = await _apiClient.FastOperations.GetById(operation.Id).IsSuccessWithContent();
+
+        Assert.That(apiOperation, Is.Not.Null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(apiOperation.Id, Is.EqualTo(operation.Id));
+            Assert.That(apiOperation.Comment, Is.EqualTo(operation.Comment));
+            Assert.That(apiOperation.CategoryId, Is.EqualTo(operation.Category.Id));
+            Assert.That(apiOperation.Name, Is.EqualTo(operation.Name));
+            Assert.That(apiOperation.Order, Is.EqualTo(operation.Order));
+            Assert.That(apiOperation.Place, Is.EqualTo(operation.Place.Name));
+        });
+    }
+
+    [Test]
+    public async Task GetTest()
+    {
+        var category = _user.WithCategory();
+
+        TestFastOperation[] operations =
+        [
+            category.WithFastOperation(),
+            category.WithFastOperation(),
+            category.WithFastOperation(),
+        ];
+
+        _dbClient.Save();
+
+        var apiOperations = await _apiClient.FastOperations.Get().IsSuccessWithContent();
+        Assert.That(apiOperations, Is.Not.Null);
+        Assert.That(apiOperations, Has.Length.GreaterThanOrEqualTo(operations.Length));
+
+        var testOperations = operations.ExceptBy(apiOperations.Select(x => x.Id), operation => operation.Id).ToArray();
+        Assert.That(testOperations, Is.Not.Null);
+        Assert.That(testOperations, Is.Empty);
+    }
+
+    [Test]
+    public async Task RestoreTest()
+    {
+        var operation = _user.WithFastOperation().SetIsDeleted();
+        _dbClient.Save();
+
+        await _apiClient.FastOperations.Restore(operation.Id).IsSuccess();
+
+        await using var context = _dbClient.CreateApplicationDbContext();
+
+        var dbOperation = await context.FastOperations.FirstOrDefaultAsync(_user.Id, operation.Id);
+        Assert.That(dbOperation, Is.Not.Null);
+        Assert.That(dbOperation.IsDeleted, Is.False);
     }
 
     [Test]
@@ -143,42 +180,5 @@ public class FastOperationTests
             Assert.That(dbOperation.CategoryId, Is.EqualTo(request.CategoryId));
             Assert.That(dbPlace.Name, Is.EqualTo(request.Place));
         });
-    }
-
-    [Test]
-    public async Task DeleteTest()
-    {
-        var operation = _user.WithFastOperation();
-        _dbClient.Save();
-
-        await _apiClient.FastOperations.Delete(operation.Id).IsSuccess();
-
-        await using var context = _dbClient.CreateApplicationDbContext();
-
-        var dbOperation = await context.FastOperations.FirstOrDefaultAsync(_user.Id, operation.Id);
-
-        Assert.That(dbOperation, Is.Null);
-
-        dbOperation = await context.FastOperations
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(_user.Id, operation.Id);
-
-        Assert.That(dbOperation, Is.Not.Null);
-        Assert.That(dbOperation.IsDeleted, Is.EqualTo(true));
-    }
-
-    [Test]
-    public async Task RestoreTest()
-    {
-        var operation = _user.WithFastOperation().SetIsDeleted();
-        _dbClient.Save();
-
-        await _apiClient.FastOperations.Restore(operation.Id).IsSuccess();
-
-        await using var context = _dbClient.CreateApplicationDbContext();
-
-        var dbOperation = await context.FastOperations.FirstOrDefaultAsync(_user.Id, operation.Id);
-        Assert.That(dbOperation, Is.Not.Null);
-        Assert.That(dbOperation.IsDeleted, Is.EqualTo(false));
     }
 }

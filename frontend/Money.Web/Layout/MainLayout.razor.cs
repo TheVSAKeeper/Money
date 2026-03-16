@@ -8,7 +8,9 @@ public partial class MainLayout(
     IWebAssemblyHostEnvironment environment,
     ILocalStorageService storageService,
     NavigationManager navigationManager,
-    AuthenticationStateProvider authenticationStateProvider)
+    AuthenticationStateProvider authenticationStateProvider,
+    NotificationService notificationService,
+    IConfiguration configuration)
 {
     private readonly MudTheme _defaultTheme = new();
     private AppSettings _appSettings = new();
@@ -19,6 +21,11 @@ public partial class MainLayout(
     private bool _drawerOpen = true;
 
     private bool IsHomePage => string.Equals(navigationManager.BaseUri, navigationManager.Uri, StringComparison.OrdinalIgnoreCase);
+
+    public async ValueTask DisposeAsync()
+    {
+        await notificationService.DisposeAsync();
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -33,7 +40,7 @@ public partial class MainLayout(
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender == false)
+        if (!firstRender)
         {
             return;
         }
@@ -43,12 +50,17 @@ public partial class MainLayout(
         _darkModeToggle.UpdateState();
         StateHasChanged();
 
+        var authState = await authenticationStateProvider.GetAuthenticationStateAsync();
+
+        if (authState.User.Identity is { IsAuthenticated: true })
+        {
+            var apiBase = $"https://{configuration["Services:api:https:0"]}";
+            await notificationService.StartAsync(apiBase);
+        }
+
         if (IsHomePage)
         {
-            var authState = await authenticationStateProvider.GetAuthenticationStateAsync();
-            var user = authState.User;
-
-            if (user.Identity is { IsAuthenticated: true })
+            if (authState.User.Identity is { IsAuthenticated: true })
             {
                 navigationManager.NavigateTo("operations");
             }

@@ -21,6 +21,51 @@ public sealed class AdminClient(MoneyClient apiClient) : ApiClientExecutor(apiCl
         return GetAsync<List<PartitionListResponse>>($"{BaseUri}/Partitions");
     }
 
+    public Task<ApiClientResponse<CacheStatsResponse>> GetCacheStats()
+    {
+        return GetAsync<CacheStatsResponse>($"{BaseUri}/cache/stats");
+    }
+
+    public Task<ApiClientResponse<List<CacheCategoryInfo>>> GetCachedCategories()
+    {
+        return GetAsync<List<CacheCategoryInfo>>($"{BaseUri}/cache/categories");
+    }
+
+    public Task<ApiClientResponse<List<CacheOperationIndexInfo>>> GetCachedOperations()
+    {
+        return GetAsync<List<CacheOperationIndexInfo>>($"{BaseUri}/cache/operations");
+    }
+
+    public Task<ApiClientResponse<List<CacheCounterInfo>>> GetCounters()
+    {
+        return GetAsync<List<CacheCounterInfo>>($"{BaseUri}/counters");
+    }
+
+    public Task<ApiClientResponse<LockStatsResponse>> GetLockStats()
+    {
+        return GetAsync<LockStatsResponse>($"{BaseUri}/locks/stats");
+    }
+
+    public Task<ApiClientResponse> FlushCache()
+    {
+        return DeleteAsync($"{BaseUri}/cache/flush");
+    }
+
+    public Task<ApiClientResponse<PubSubMetricsResponse>> GetPubSubMetrics()
+    {
+        return GetAsync<PubSubMetricsResponse>($"{BaseUri}/PubSub");
+    }
+
+    public Task<ApiClientResponse<EmailQueueStatsResponse>> GetEmailQueueStatsAsync()
+    {
+        return GetAsync<EmailQueueStatsResponse>($"{BaseUri}/EmailQueue");
+    }
+
+    public Task<ApiClientResponse> SimulateEmailQueueAsync()
+    {
+        return PostAsync($"{BaseUri}/EmailQueue/simulate");
+    }
+
     public class ShardsMetricsResponse
     {
         public Dictionary<string, ShardMetrics> Shards { get; set; } = [];
@@ -65,5 +110,77 @@ public sealed class AdminClient(MoneyClient apiClient) : ApiClientExecutor(apiCl
         public long SizeBytes { get; set; }
         public DateOnly RangeStart { get; set; }
         public DateOnly RangeEnd { get; set; }
+    }
+
+    public class CacheStatsResponse
+    {
+        public long TotalKeys { get; set; }
+        public long HitsTotal { get; set; }
+        public long MissesTotal { get; set; }
+        public double HitRatio { get; set; }
+        public long UsedMemoryBytes { get; set; }
+        public string UsedMemoryHuman { get; set; } = "";
+    }
+
+    public class CacheCounterInfo
+    {
+        public string Key { get; set; } = "";
+        public string ShardName { get; set; } = "";
+        public string EntityType { get; set; } = "";
+        public int UserId { get; set; }
+        public long CurrentValue { get; set; }
+    }
+
+    public class LockStatsResponse
+    {
+        public long Acquired { get; set; }
+        public long Failed { get; set; }
+    }
+
+    public class CacheCategoryInfo
+    {
+        public string Key { get; set; } = "";
+        public string ShardName { get; set; } = "";
+        public int UserId { get; set; }
+        public double? TtlRemainingSeconds { get; set; }
+    }
+
+    public class CacheOperationIndexInfo
+    {
+        public string ShardName { get; set; } = "";
+        public int UserId { get; set; }
+        public int CachedFilterCount { get; set; }
+        public double? AvgTtlSeconds { get; set; }
+    }
+
+    public class PubSubChannelInfo
+    {
+        public string Channel { get; set; } = "";
+        public long Subscribers { get; set; }
+    }
+
+    public class PubSubMetricsResponse
+    {
+        public long PatternSubscribers { get; set; }
+    }
+
+    public class EmailQueueStatsResponse
+    {
+        public long QueueLength { get; set; }
+        public long RetryLength { get; set; }
+        public long DlqLength { get; set; }
+        public List<EmailPreview> RecentMessages { get; set; } = [];
+        public List<EmailPreview> RetryMessages { get; set; } = [];
+        public List<EmailPreview> DlqMessages { get; set; } = [];
+    }
+
+    public class EmailPreview
+    {
+        public Guid Id { get; set; }
+        public string ReceiverEmail { get; set; } = "";
+        public string Title { get; set; } = "";
+        public int RetryCount { get; set; }
+        public DateTimeOffset EnqueuedAt { get; set; }
+        public DateTimeOffset? NextRetryAt { get; set; }
     }
 }

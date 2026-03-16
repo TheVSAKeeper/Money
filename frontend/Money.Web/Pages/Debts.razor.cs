@@ -38,9 +38,29 @@ public partial class Debts
     [Inject]
     private ISnackbar SnackbarService { get; set; } = null!;
 
+    [Inject]
+    private NotificationService NotificationService { get; set; } = null!;
+
+    public void Dispose()
+    {
+        NotificationService.OnNotify -= HandleNotification;
+    }
+
     protected override Task OnInitializedAsync()
     {
+        NotificationService.OnNotify += HandleNotification;
         return LoadDebtsAsync();
+    }
+
+    private async void HandleNotification(string eventType, string jsonData)
+    {
+        if (eventType is not ("DebtCreated" or "DebtUpdated" or "DebtPaid" or "DebtForgiven" or "DebtDeleted" or "DebtRestored"))
+        {
+            return;
+        }
+
+        await LoadDebtsAsync();
+        await InvokeAsync(StateHasChanged);
     }
 
     private static void ToggleType(DeptType type)
@@ -55,7 +75,7 @@ public partial class Debts
 
     private async Task OpenMergeAsync(bool state)
     {
-        if (_isMergeOpen == false && _owners == null)
+        if (!_isMergeOpen && _owners == null)
         {
             var response = await MoneyClient.Debts.GetOwners();
 
@@ -93,7 +113,7 @@ public partial class Debts
     {
         _isForgiveOpen = state;
 
-        if (state == false)
+        if (!state)
         {
             ClearDebtSelection();
         }
@@ -120,13 +140,13 @@ public partial class Debts
             return;
         }
 
-        if (CanDebtBeForgiven(debt) == false)
+        if (!CanDebtBeForgiven(debt))
         {
             SnackbarService.Add("Нельзя простить этот долг", Severity.Warning);
             return;
         }
 
-        if (_selectedDebtIds.Add(debtId.Value) == false)
+        if (!_selectedDebtIds.Add(debtId.Value))
         {
             _selectedDebtIds.Remove(debtId.Value);
         }
@@ -158,7 +178,7 @@ public partial class Debts
 
     private bool CanDebtBeForgiven(Debt debt)
     {
-        if (_isForgiveOpen == false)
+        if (!_isForgiveOpen)
         {
             return false;
         }
@@ -259,7 +279,7 @@ public partial class Debts
             return;
         }
 
-        if (_debts.TryGetValue(created.Type, out var owners) == false)
+        if (!_debts.TryGetValue(created.Type, out var owners))
         {
             _debts[created.Type] = owners = [];
         }
@@ -300,7 +320,7 @@ public partial class Debts
 
     private void Remove(Debt model)
     {
-        if (_debts.TryGetValue(model.Type, out var owners) == false)
+        if (!_debts.TryGetValue(model.Type, out var owners))
         {
             return;
         }
@@ -316,7 +336,7 @@ public partial class Debts
 
     private void Add(Debt model)
     {
-        if (_debts.TryGetValue(model.Type, out var owners) == false)
+        if (!_debts.TryGetValue(model.Type, out var owners))
         {
             _debts[model.Type] = owners = [];
         }

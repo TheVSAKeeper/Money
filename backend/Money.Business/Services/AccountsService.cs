@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
+using Money.Business.Interfaces;
 using Money.Data.Entities;
 using Money.Data.Sharding;
 using System.Text;
@@ -13,7 +14,7 @@ public sealed partial class AccountsService(
     RoutingDbContext routingContext,
     ShardedDbContextFactory shardFactory,
     ShardRouter shardRouter,
-    QueueHolder queueHolder,
+    IEmailQueueService emailQueueService,
     ILogger<AccountsService> logger)
 {
     public async Task RegisterAsync(RegisterAccount model, CancellationToken cancellationToken = default)
@@ -79,7 +80,7 @@ public sealed partial class AccountsService(
 
         if (model.Email != null)
         {
-            SendEmail(user.UserName, model.Email, user.EmailConfirmCode!);
+            await SendEmailAsync(user.UserName, model.Email, user.EmailConfirmCode!);
         }
     }
 
@@ -157,6 +158,15 @@ public sealed partial class AccountsService(
         return (userId, shardName);
     }
 
+    public async Task<Guid> GetAuthUserIdAsync(int domainUserId, string shardName, CancellationToken cancellationToken = default)
+    {
+        await using var shardContext = shardFactory.Create(shardName);
+        var domainUser = await shardContext.DomainUsers
+            .FirstAsync(x => x.Id == domainUserId, cancellationToken);
+
+        return domainUser.AuthUserId;
+    }
+
     public async Task ConfirmEmailAsync(string confirmCode, CancellationToken cancellationToken = default)
     {
         var user = environment.AuthUser;
@@ -209,7 +219,7 @@ public sealed partial class AccountsService(
         user.EmailConfirmCode = GetCode(6);
         await userManager.UpdateAsync(user);
 
-        SendEmail(user.UserName!, user.Email, user.EmailConfirmCode);
+        await SendEmailAsync(user.UserName!, user.Email, user.EmailConfirmCode);
     }
 
     private static string GetCode(int length, string allowedChars = "1234567890")
@@ -228,13 +238,13 @@ public sealed partial class AccountsService(
     [GeneratedRegex("^[a-zA-Z0-9_-]+$", RegexOptions.Compiled)]
     private static partial Regex UserNameRegex();
 
-    private void SendEmail(string userName, string email, string confirmCode)
+    private async Task SendEmailAsync(string userName, string email, string confirmCode)
     {
         const string Title = "Подтверждение регистрации";
         var body = $"Здравствуйте, {userName}!\r\nВаш код для подтверждения регистрации на сайте Филочек:\r\n{confirmCode}";
 
         // TODO: Стоит ли добавлять новое письмо, если уже есть в очереди письмо на тот же email
-        queueHolder.MailMessages.Enqueue(new(email, Title, body));
+        await emailQueueService.EnqueueAsync(new(email, Title, body));
     }
 
     // TODO Подумать над переносом в сервис

@@ -6,6 +6,7 @@ using Money.Data;
 using Money.Data.Sharding;
 using System.Collections.Concurrent;
 using Testcontainers.PostgreSql;
+using Testcontainers.Redis;
 
 namespace Money.Api.Tests;
 
@@ -63,10 +64,13 @@ public class Integration
             .WithDatabase("money_burunduk")
             .Build();
 
+        _redisContainer = new RedisBuilder("redis:8.2").Build();
+
         await Task.WhenAll(_routingContainer.StartAsync(),
             _dundukContainer.StartAsync(),
             _fundukContainer.StartAsync(),
-            _burundukContainer.StartAsync());
+            _burundukContainer.StartAsync(),
+            _redisContainer.StartAsync());
 
         CustomWebApplicationFactory<Program> webHostBuilder = new()
         {
@@ -74,6 +78,7 @@ public class Integration
             DundukDb = _dundukContainer.GetConnectionString(),
             FundukDb = _fundukContainer.GetConnectionString(),
             BurundukDb = _burundukContainer.GetConnectionString(),
+            RedisConnectionString = _redisContainer.GetConnectionString(),
         };
 
         webHostBuilder.Server.PreserveExecutionContext = true;
@@ -95,7 +100,8 @@ public class Integration
         return Task.WhenAll(_routingContainer.DisposeAsync().AsTask(),
             _dundukContainer.DisposeAsync().AsTask(),
             _fundukContainer.DisposeAsync().AsTask(),
-            _burundukContainer.DisposeAsync().AsTask());
+            _burundukContainer.DisposeAsync().AsTask(),
+            _redisContainer.DisposeAsync().AsTask());
     }
 
 #pragma warning disable NUnit1032
@@ -103,5 +109,6 @@ public class Integration
     private static PostgreSqlContainer _dundukContainer = null!;
     private static PostgreSqlContainer _fundukContainer = null!;
     private static PostgreSqlContainer _burundukContainer = null!;
+    private static RedisContainer _redisContainer = null!;
 #pragma warning restore NUnit1032
 }

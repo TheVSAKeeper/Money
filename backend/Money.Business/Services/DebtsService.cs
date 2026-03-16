@@ -1,4 +1,5 @@
-﻿using Money.Data.Extensions;
+﻿using Money.Business.Interfaces;
+using Money.Data.Extensions;
 
 namespace Money.Business.Services;
 
@@ -7,7 +8,8 @@ public class DebtsService(
     ApplicationDbContext context,
     UsersService usersService,
     CategoriesService categoriesService,
-    OperationsService operationsService)
+    OperationsService operationsService,
+    INotificationService notificationService)
 {
     public async Task<IEnumerable<Debt>> GetAsync(bool withPaid = false, CancellationToken cancellationToken = default)
     {
@@ -64,6 +66,7 @@ public class DebtsService(
 
         await context.Debts.AddAsync(entity, cancellationToken);
         await context.SaveChangesAsync(cancellationToken);
+        await notificationService.PublishAsync(environment.UserId, environment.ShardName!, "DebtCreated", new { id, sum = model.Sum });
         return id;
     }
 
@@ -92,6 +95,7 @@ public class DebtsService(
         entity.TypeId = (int)model.Type;
 
         await context.SaveChangesAsync(cancellationToken);
+        await notificationService.PublishAsync(environment.UserId, environment.ShardName!, "DebtUpdated", new { id = model.Id });
     }
 
     public async Task PayAsync(DebtPayment debtPayment, CancellationToken cancellationToken = default)
@@ -110,13 +114,14 @@ public class DebtsService(
             entity.StatusId = (int)DebtStatus.Paid;
         }
 
-        if (string.IsNullOrEmpty(entity.PayComment) == false)
+        if (!string.IsNullOrEmpty(entity.PayComment))
         {
             entity.PayComment += Environment.NewLine;
         }
 
         entity.PayComment += $"{debtPayment.Date:yyyy.MM.dd} {debtPayment.Sum} {debtPayment.Comment}";
         await context.SaveChangesAsync(cancellationToken);
+        await notificationService.PublishAsync(environment.UserId, environment.ShardName!, "DebtPaid", new { id = debtPayment.Id, paySum = debtPayment.Sum });
     }
 
     public async Task MergeOwnersAsync(int fromUserId, int toUserId, CancellationToken cancellationToken = default)
@@ -215,12 +220,12 @@ public class DebtsService(
                 var dbOwner = dbOwners[entity.OwnerId];
                 var comment = $"{operationComment} {dbOwner.Name} сумма долга: {entity.Sum} из них оплачено: {entity.PaySum}";
 
-                if (string.IsNullOrWhiteSpace(entity.Comment) == false)
+                if (!string.IsNullOrWhiteSpace(entity.Comment))
                 {
                     comment += Environment.NewLine + $"комментарий: {entity.Comment}";
                 }
 
-                if (string.IsNullOrWhiteSpace(entity.PayComment) == false)
+                if (!string.IsNullOrWhiteSpace(entity.PayComment))
                 {
                     comment += Environment.NewLine + $"платёжный комментарий: {entity.PayComment}";
                 }
@@ -239,6 +244,7 @@ public class DebtsService(
 
             await context.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+            await notificationService.PublishAsync(environment.UserId, environment.ShardName!, "DebtForgiven", new { debtIds });
         }
         catch
         {
@@ -252,6 +258,7 @@ public class DebtsService(
         var entity = await GetByIdInternal(id, cancellationToken);
         entity.IsDeleted = true;
         await context.SaveChangesAsync(cancellationToken);
+        await notificationService.PublishAsync(environment.UserId, environment.ShardName!, "DebtDeleted", new { id });
     }
 
     public async Task RestoreAsync(int id, CancellationToken cancellationToken = default)
@@ -265,6 +272,7 @@ public class DebtsService(
 
         dbOperation.IsDeleted = false;
         await context.SaveChangesAsync(cancellationToken);
+        await notificationService.PublishAsync(environment.UserId, environment.ShardName!, "DebtRestored", new { id });
     }
 
     private static Debt GetBusinessModel(Data.Entities.Debt entity, IEnumerable<Data.Entities.DebtOwner> dbOwners)
@@ -297,7 +305,7 @@ public class DebtsService(
             throw new BusinessException("Извините, но сумма должна быть больше нуля");
         }
 
-        if (Enum.IsDefined(model.Type) == false)
+        if (!Enum.IsDefined(model.Type))
         {
             throw new BusinessException("Извините, неподдерживаемый тип долга");
         }

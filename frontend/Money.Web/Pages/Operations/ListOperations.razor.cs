@@ -1,6 +1,6 @@
 namespace Money.Web.Pages.Operations;
 
-public partial class ListOperations(FastOperationService fastOperationService)
+public partial class ListOperations(FastOperationService fastOperationService, NotificationService notificationService)
 {
     private OperationDialog _dialog = null!;
 
@@ -12,6 +12,22 @@ public partial class ListOperations(FastOperationService fastOperationService)
         _fastOperations = await fastOperationService.GetAllAsync();
     }
 
+    protected override void OnAfterRender(bool firstRender)
+    {
+        base.OnAfterRender(firstRender);
+
+        if (firstRender)
+        {
+            notificationService.OnNotify += HandleNotification;
+        }
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        notificationService.OnNotify -= HandleNotification;
+        base.Dispose(disposing);
+    }
+
     protected override void OnSearchChanged(object? sender, OperationSearchEventArgs args)
     {
         if (args.Operations == null)
@@ -20,7 +36,7 @@ public partial class ListOperations(FastOperationService fastOperationService)
             return;
         }
 
-        if (args.ShouldRender == false && _operationsDays != null)
+        if (!args.ShouldRender && _operationsDays != null)
         {
             if (args.AddZeroDays)
             {
@@ -91,6 +107,14 @@ public partial class ListOperations(FastOperationService fastOperationService)
 
                 i += shift + 1;
             }
+        }
+    }
+
+    private async void HandleNotification(string eventType, string jsonData)
+    {
+        if (eventType is "OperationCreated" or "OperationUpdated" or "OperationDeleted" or "OperationRestored" or "OperationsBatchUpdated")
+        {
+            await InvokeAsync(() => OperationsFilter.SearchAsync());
         }
     }
 

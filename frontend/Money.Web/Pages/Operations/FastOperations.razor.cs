@@ -13,9 +13,27 @@ public partial class FastOperations
     [Inject]
     private IDialogService DialogService { get; set; } = null!;
 
+    [Inject]
+    private NotificationService NotificationService { get; set; } = null!;
+
+    public void Dispose()
+    {
+        NotificationService.OnNotify -= HandleNotification;
+    }
+
     protected override async Task OnInitializedAsync()
     {
         _operations = await FastOperationService.GetAllAsync();
+        NotificationService.OnNotify += HandleNotification;
+    }
+
+    private async void HandleNotification(string eventType, string jsonData)
+    {
+        if (eventType is "OperationCreated" or "OperationUpdated" or "OperationDeleted" or "OperationRestored" or "OperationsBatchUpdated")
+        {
+            _operations = await FastOperationService.GetAllAsync();
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     private async Task Create(OperationTypes.Value? type = null)

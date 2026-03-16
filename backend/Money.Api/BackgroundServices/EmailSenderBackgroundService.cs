@@ -1,19 +1,18 @@
 using Microsoft.Extensions.Options;
-using Money.Business;
+using Money.Api.Services.Notifications;
+using Money.Business.Interfaces;
 using Money.Common;
-using System.Threading.Channels;
-using MailMessage = Money.Business.Models.MailMessage;
 
 namespace Money.Api.BackgroundServices;
 
 public class EmailSenderBackgroundService(
-    QueueHolder queueHolder,
+    IEmailQueueService emailQueueService,
     IMailsService mailsService,
+    AdminNotificationPublisher adminPublisher,
     ILogger<EmailSenderBackgroundService> logger,
     IOptions<EmailSenderSettings> options) : BackgroundService
 {
     private readonly EmailSenderSettings _settings = options.Value;
-    private readonly Channel<MailMessage> _retryChannel = Channel.CreateUnbounded<MailMessage>();
     private readonly SemaphoreSlim _semaphore = new(Environment.ProcessorCount * 2);
     private PeriodicTimer _timer = null!;
 
@@ -45,11 +44,9 @@ public class EmailSenderBackgroundService(
         {
             logger.LogInformation("Принудительный запуск обработки очереди");
 
-            using (var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
-            {
-                linkedSource.CancelAfter(_settings.ProcessingInterval);
-                await ProcessMessagesAsync(linkedSource.Token);
-            }
+            using var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            linkedSource.CancelAfter(_settings.ProcessingInterval);
+            await ProcessTickAsync(linkedSource.Token);
 
             logger.LogInformation("Принудительная обработка завершена");
         }
@@ -65,57 +62,73 @@ public class EmailSenderBackgroundService(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var processingTask = ProcessMessagesAsync(stoppingToken);
-        var retryTask = ProcessRetriesAsync(stoppingToken);
-
         do
         {
-            await processingTask;
-            processingTask = ProcessMessagesAsync(stoppingToken);
+            await ProcessTickAsync(stoppingToken);
         } while (await _timer.WaitForNextTickAsync(stoppingToken));
+    }
 
-        await Task.WhenAll(processingTask, retryTask);
+    private async Task ProcessTickAsync(CancellationToken cancellationToken)
+    {
+        await RequeueReadyRetriesAsync(cancellationToken);
+        await ProcessMessagesAsync(cancellationToken);
+    }
+
+    private async Task RequeueReadyRetriesAsync(CancellationToken cancellationToken)
+    {
+        var readyRetries = await emailQueueService.DequeueReadyRetriesAsync(100);
+
+        foreach (var envelope in readyRetries)
+        {
+            await emailQueueService.EnqueueAsync(envelope.Message);
+        }
+
+        if (readyRetries.Count > 0)
+        {
+            logger.LogDebug("Повторно поставлено в очередь {Count} сообщений из retry", readyRetries.Count);
+        }
     }
 
     private async Task ProcessMessagesAsync(CancellationToken cancellationToken)
     {
-        var batchSize = 0;
-        var tasks = new List<Task>();
+        var envelopes = await emailQueueService.DequeueBatchAsync(_settings.MaxBatchSize);
 
-        while (queueHolder.MailMessages.TryDequeue(out var message))
+        if (envelopes.Count == 0)
         {
-            tasks.Add(ProcessSingleMessageAsync(message, cancellationToken));
-
-            if (++batchSize >= _settings.MaxBatchSize)
-            {
-                break;
-            }
+            return;
         }
 
+        var tasks = envelopes.Select(e => ProcessSingleEnvelopeAsync(e, cancellationToken));
         await Task.WhenAll(tasks);
-        logger.LogDebug("Обработано {BatchSize} сообщений", batchSize);
+        logger.LogDebug("Обработано {BatchSize} сообщений", envelopes.Count);
     }
 
-    private async Task ProcessSingleMessageAsync(MailMessage message, CancellationToken cancellationToken)
+    private async Task ProcessSingleEnvelopeAsync(MailEnvelope envelope, CancellationToken cancellationToken)
     {
         await _semaphore.WaitAsync(cancellationToken);
 
         try
         {
             var stopwatch = ValueStopwatch.StartNew();
-            await mailsService.SendAsync(message, cancellationToken);
+            await mailsService.SendAsync(envelope.Message, cancellationToken);
 
-            logger.LogInformation("Сообщение {MessageId} отправлено за {Elapsed} мс", message.Id, stopwatch.GetElapsedTime().TotalMilliseconds);
+            logger.LogInformation("Сообщение {MessageId} отправлено за {Elapsed} мс",
+                envelope.Message.Id, stopwatch.GetElapsedTime().TotalMilliseconds);
+
+            await adminPublisher.PublishEmailQueueChangedAsync(await emailQueueService.GetQueueLengthAsync(),
+                await emailQueueService.GetRetryQueueLengthAsync(),
+                await emailQueueService.GetDeadLetterQueueLengthAsync(),
+                "EmailSent");
         }
         catch (OperationCanceledException)
         {
-            queueHolder.MailMessages.Enqueue(message);
-            logger.LogWarning("Операция отменена, сообщение {MessageId} возвращено в очередь", message.Id);
+            await emailQueueService.EnqueueAsync(envelope.Message);
+            logger.LogWarning("Операция отменена, сообщение {MessageId} возвращено в очередь", envelope.Message.Id);
         }
         catch (Exception exception)
         {
-            logger.LogCritical(exception, "Критическая ошибка при обработке сообщения {MessageId}", message.Id);
-            await HandleRetryAsync(message, exception);
+            logger.LogCritical(exception, "Критическая ошибка при обработке сообщения {MessageId}", envelope.Message.Id);
+            await HandleRetryAsync(envelope, exception);
         }
         finally
         {
@@ -123,35 +136,31 @@ public class EmailSenderBackgroundService(
         }
     }
 
-    private async Task HandleRetryAsync(MailMessage message, Exception exception)
+    private async Task HandleRetryAsync(MailEnvelope envelope, Exception exception)
     {
-        if (message.RetryCount >= _settings.MaxRetries)
+        if (envelope.RetryCount >= _settings.MaxRetries)
         {
-            logger.LogError(exception, "Достигнут максимум повторов для сообщения {MessageId}", message.Id);
+            logger.LogError(exception, "Достигнут максимум повторов для сообщения {MessageId}", envelope.Message.Id);
+            await emailQueueService.EnqueueDeadLetterAsync(envelope);
+
+            await adminPublisher.PublishEmailQueueChangedAsync(await emailQueueService.GetQueueLengthAsync(),
+                await emailQueueService.GetRetryQueueLengthAsync(),
+                await emailQueueService.GetDeadLetterQueueLengthAsync(),
+                "EmailDead");
+
             return;
         }
 
-        message.RetryCount++;
-        var delay = CalculateRetryDelay(message.RetryCount);
+        envelope.RetryCount++;
 
-        logger.LogWarning(exception, "Повторная попытка {RetryCount} для сообщения {MessageId} через {Delay} с",
-            message.RetryCount, message.Id, delay.TotalSeconds);
+        logger.LogWarning(exception, "Повторная попытка {RetryCount} для сообщения {MessageId}",
+            envelope.RetryCount, envelope.Message.Id);
 
-        await _retryChannel.Writer.WriteAsync(message);
-    }
+        await emailQueueService.EnqueueRetryAsync(envelope);
 
-    private async Task ProcessRetriesAsync(CancellationToken cancellationToken)
-    {
-        await foreach (var message in _retryChannel.Reader.ReadAllAsync(cancellationToken))
-        {
-            var delay = CalculateRetryDelay(message.RetryCount);
-            await Task.Delay(delay, cancellationToken);
-            queueHolder.MailMessages.Enqueue(message);
-        }
-    }
-
-    private TimeSpan CalculateRetryDelay(int retryCount)
-    {
-        return TimeSpan.FromSeconds(_settings.RetryBaseDelaySeconds * Math.Pow(2, retryCount));
+        await adminPublisher.PublishEmailQueueChangedAsync(await emailQueueService.GetQueueLengthAsync(),
+            await emailQueueService.GetRetryQueueLengthAsync(),
+            await emailQueueService.GetDeadLetterQueueLengthAsync(),
+            "EmailRetried");
     }
 }

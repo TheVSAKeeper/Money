@@ -1,4 +1,5 @@
 using Money.Api.BackgroundServices;
+using Money.Api.Services.Notifications;
 
 namespace Money.Api.Definitions;
 
@@ -11,5 +12,9 @@ public class BackgroundServicesDefinition : AppDefinition
 
         builder.Services.AddSingleton<PartitionMaintenanceService>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<PartitionMaintenanceService>());
+
+        builder.Services.AddHostedService<CounterSyncService>();
+        builder.Services.AddHostedService<NotificationBridgeService>();
+        builder.Services.AddHostedService<AdminBridgeService>();
     }
 }

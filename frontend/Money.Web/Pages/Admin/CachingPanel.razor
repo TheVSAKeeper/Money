@@ -1,0 +1,353 @@
+@page "/admin/caching"
+@attribute [Authorize]
+@using Money.ApiClient
+@using static ApiClient.AdminClient
+@implements IDisposable
+
+@inject MoneyClient Client
+
+<PageTitle>Кэширование</PageTitle>
+
+<MudText Typo="Typo.h5"
+         GutterBottom>Кэширование Redis
+</MudText>
+
+@if (_stats == null)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudGrid Class="mb-4">
+        <MudItem xs="12"
+                 sm="6"
+                 md="3">
+            <MudPaper Class="pa-4"
+                      Elevation="0">
+                <MudStack Row
+                          AlignItems="AlignItems.Center"
+                          Spacing="3">
+                    <MudIcon Icon="@Icons.Material.Rounded.Key"
+                             Color="Color.Primary"
+                             Size="Size.Large" />
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.caption"
+                                 Class="mud-text-secondary">Ключей в Redis
+                        </MudText>
+                        <MudText Typo="Typo.h5">@_stats.TotalKeys.ToString("N0")</MudText>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12"
+                 sm="6"
+                 md="3">
+            <MudPaper Class="pa-4"
+                      Elevation="0">
+                <MudStack Row
+                          AlignItems="AlignItems.Center"
+                          Spacing="3">
+                    <MudIcon Icon="@Icons.Material.Rounded.Memory"
+                             Color="Color.Secondary"
+                             Size="Size.Large" />
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.caption"
+                                 Class="mud-text-secondary">Память
+                        </MudText>
+                        <MudText Typo="Typo.h5">@_stats.UsedMemoryHuman</MudText>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12"
+                 sm="6"
+                 md="3">
+            <MudPaper Class="pa-4"
+                      Elevation="0">
+                <MudStack Row
+                          AlignItems="AlignItems.Center"
+                          Spacing="3">
+                    <MudIcon Icon="@Icons.Material.Rounded.CheckCircle"
+                             Color="Color.Success"
+                             Size="Size.Large" />
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.caption"
+                                 Class="mud-text-secondary">Попаданий
+                        </MudText>
+                        <MudText Typo="Typo.h5">@_stats.HitsTotal.ToString("N0")</MudText>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12"
+                 sm="6"
+                 md="3">
+            <MudPaper Class="pa-4"
+                      Elevation="0">
+                <MudStack Row
+                          AlignItems="AlignItems.Center"
+                          Spacing="3">
+                    <MudIcon Icon="@Icons.Material.Rounded.Cancel"
+                             Color="Color.Warning"
+                             Size="Size.Large" />
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.caption"
+                                 Class="mud-text-secondary">Промахов
+                        </MudText>
+                        <MudText Typo="Typo.h5">@_stats.MissesTotal.ToString("N0")</MudText>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudGrid Class="mb-6">
+        <MudItem xs="12"
+                 md="8">
+            <MudPaper Class="pa-4"
+                      Elevation="2">
+                <MudStack Row
+                          Justify="Justify.SpaceBetween"
+                          AlignItems="AlignItems.Center"
+                          Class="mb-3">
+                    <MudText Typo="Typo.h6">Hit Ratio</MudText>
+                    <MudChip T="string"
+                             Size="Size.Small"
+                             Variant="Variant.Outlined"
+                             Color="@(_stats.HitRatio >= 0.8 ? Color.Success : _stats.HitRatio >= 0.5 ? Color.Warning : Color.Error)">
+                        @(_stats.HitRatio.ToString("P1"))
+                    </MudChip>
+                </MudStack>
+                <MudProgressLinear Value="@(_stats.HitRatio * 100)"
+                                   Color="@(_stats.HitRatio >= 0.8 ? Color.Success : _stats.HitRatio >= 0.5 ? Color.Warning : Color.Error)"
+                                   Rounded
+                                   Size="Size.Large"
+                                   Class="mb-2" />
+                <MudStack Row
+                          Justify="Justify.SpaceBetween">
+                    <MudText Typo="Typo.caption"
+                             Class="mud-text-secondary">
+                        Hits: @_stats.HitsTotal.ToString("N0")
+                    </MudText>
+                    <MudText Typo="Typo.caption"
+                             Class="mud-text-secondary">
+                        Misses: @_stats.MissesTotal.ToString("N0")
+                    </MudText>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12"
+                 md="4">
+            <MudPaper Class="pa-4"
+                      Elevation="2">
+                <MudText Typo="Typo.h6"
+                         GutterBottom>Hits / Misses
+                </MudText>
+                @if (_stats.HitsTotal + _stats.MissesTotal > 0)
+                {
+                    <MudChart ChartType="ChartType.Donut"
+                              InputData="@_hitMissData"
+                              InputLabels="@_hitMissLabels"
+                              Width="100%"
+                              Height="200px" />
+                }
+                else
+                {
+                    <MudAlert Severity="Severity.Info"
+                              Variant="Variant.Text"
+                              Dense>Нет данных
+                    </MudAlert>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudPaper Class="pa-4 mb-6"
+              Elevation="2">
+        <MudStack Row
+                  Justify="Justify.SpaceBetween"
+                  AlignItems="AlignItems.Center"
+                  Class="mb-3">
+            <MudText Typo="Typo.h6">Redis-счётчики (Write-Behind)</MudText>
+            @if (_counters != null)
+            {
+                <MudChip T="string"
+                         Size="Size.Small"
+                         Variant="Variant.Outlined"
+                         Color="Color.Default"
+                         Icon="@Icons.Material.Rounded.Numbers">
+                    @_counters.Count
+                </MudChip>
+            }
+        </MudStack>
+
+        @if (_counters == null)
+        {
+            <MudProgressCircular Indeterminate="true"
+                                 Size="Size.Small" />
+        }
+        else if (_counters.Count == 0)
+        {
+            <MudAlert Severity="Severity.Info"
+                      Variant="Variant.Text"
+                      Dense>Счётчиков нет — Redis пуст или данные ещё не созданы
+            </MudAlert>
+        }
+        else
+        {
+            <MudDataGrid T="CacheCounterInfo"
+                         Items="@_counters"
+                         SortMode="SortMode.Multiple"
+                         Dense
+                         Hover>
+                <Columns>
+                    <PropertyColumn Property="c => c.ShardName"
+                                    Title="Шард"
+                                    Sortable="true">
+                        <CellTemplate>
+                            <MudChip T="string"
+                                     Size="Size.Small"
+                                     Variant="Variant.Outlined"
+                                     Color="Color.Primary">
+                                @context.Item.ShardName
+                            </MudChip>
+                        </CellTemplate>
+                    </PropertyColumn>
+                    <PropertyColumn Property="c => c.UserId"
+                                    Title="User ID"
+                                    Sortable="true" />
+                    <PropertyColumn Property="c => c.EntityType"
+                                    Title="Сущность"
+                                    Sortable="true" />
+                    <PropertyColumn Property="c => c.CurrentValue"
+                                    Title="Текущее значение"
+                                    Sortable="true">
+                        <CellTemplate>
+                            <MudText Typo="Typo.body2"
+                                     Color="Color.Primary">
+                                @context.Item.CurrentValue.ToString("N0")
+                            </MudText>
+                        </CellTemplate>
+                    </PropertyColumn>
+                    <TemplateColumn Title="Redis Key">
+                        <CellTemplate>
+                            <MudText Typo="Typo.caption"
+                                     Class="mud-text-secondary">
+                                @context.Item.Key
+                            </MudText>
+                        </CellTemplate>
+                    </TemplateColumn>
+                </Columns>
+            </MudDataGrid>
+        }
+    </MudPaper>
+
+    <MudPaper Class="pa-4 mb-6"
+              Elevation="2">
+        <MudStack Row
+                  Justify="Justify.SpaceBetween"
+                  AlignItems="AlignItems.Center"
+                  Class="mb-3">
+            <MudText Typo="Typo.h6">Распределённые блокировки</MudText>
+        </MudStack>
+
+        @if (_lockStats == null)
+        {
+            <MudProgressCircular Indeterminate="true"
+                                 Size="Size.Small" />
+        }
+        else
+        {
+            <MudGrid>
+                <MudItem xs="12"
+                         sm="6">
+                    <MudPaper Class="pa-4"
+                              Elevation="0">
+                        <MudStack Row
+                                  AlignItems="AlignItems.Center"
+                                  Spacing="3">
+                            <MudIcon Icon="@Icons.Material.Rounded.LockOpen"
+                                     Color="Color.Success"
+                                     Size="Size.Large" />
+                            <MudStack Spacing="0">
+                                <MudText Typo="Typo.caption"
+                                         Class="mud-text-secondary">Успешно захвачено
+                                </MudText>
+                                <MudText Typo="Typo.h5">@_lockStats.Acquired.ToString("N0")</MudText>
+                            </MudStack>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12"
+                         sm="6">
+                    <MudPaper Class="pa-4"
+                              Elevation="0">
+                        <MudStack Row
+                                  AlignItems="AlignItems.Center"
+                                  Spacing="3">
+                            <MudIcon Icon="@Icons.Material.Rounded.Lock"
+                                     Color="@(_lockStats.Failed > 0 ? Color.Warning : Color.Default)"
+                                     Size="Size.Large" />
+                            <MudStack Spacing="0">
+                                <MudText Typo="Typo.caption"
+                                         Class="mud-text-secondary">Не удалось захватить
+                                </MudText>
+                                <MudText Typo="Typo.h5"
+                                         Color="@(_lockStats.Failed > 0 ? Color.Warning : Color.Default)">
+                                    @_lockStats.Failed.ToString("N0")
+                                </MudText>
+                            </MudStack>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+
+            @if (_lockStats.Failed > 0)
+            {
+                <MudAlert Severity="Severity.Warning"
+                          Dense
+                          Variant="Variant.Outlined"
+                          Class="mt-3">
+                    Зафиксированы сбои захвата блокировок. Возможны конкуренция или проблемы с Redis.
+                </MudAlert>
+            }
+        }
+    </MudPaper>
+
+    <MudPaper Class="pa-4"
+              Elevation="2">
+        <MudStack Row
+                  Justify="Justify.SpaceBetween"
+                  AlignItems="AlignItems.Center">
+            <MudStack Spacing="0">
+                <MudText Typo="Typo.h6">Управление кэшем</MudText>
+                <MudText Typo="Typo.caption"
+                         Class="mud-text-secondary">
+                    Обновление каждые 15 сек
+                </MudText>
+            </MudStack>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Error"
+                       StartIcon="@Icons.Material.Rounded.DeleteSweep"
+                       OnClick="FlushCacheAsync"
+                       Disabled="_flushing">
+                @if (_flushing)
+                {
+                    <MudProgressCircular Indeterminate="true"
+                                         Size="Size.Small"
+                                         Class="mr-2" />
+                }
+                Очистить кэш
+            </MudButton>
+        </MudStack>
+        @if (_flushMessage != null)
+        {
+            <MudAlert Severity="@_flushSeverity"
+                      Dense
+                      Variant="Variant.Outlined"
+                      Class="mt-3">
+                @_flushMessage
+            </MudAlert>
+        }
+    </MudPaper>
+}

@@ -21,47 +21,6 @@ public class CategoryTests
     }
 
     [Test]
-    [TestCase(OperationTypes.Costs)]
-    [TestCase(OperationTypes.Income)]
-    public async Task GetTest(OperationTypes operationType)
-    {
-        TestCategory[] categories =
-        [
-            _user.WithCategory().SetOperationType(operationType),
-            _user.WithCategory().SetOperationType(operationType),
-            _user.WithCategory().SetOperationType(operationType),
-        ];
-
-        _dbClient.Save();
-
-        var apiCategories = await _apiClient.Categories.Get((int)operationType).IsSuccessWithContent();
-        Assert.That(apiCategories, Is.Not.Null);
-        Assert.That(apiCategories.Count, Is.GreaterThanOrEqualTo(3));
-
-        var testCategories = categories.ExceptBy(apiCategories.Select(x => x.Id), category => category.Id).ToArray();
-        Assert.That(testCategories, Is.Not.Null);
-        Assert.That(testCategories, Is.Empty);
-    }
-
-    [Test]
-    public async Task GetByIdTest()
-    {
-        var category = _user.WithCategory();
-        _dbClient.Save();
-
-        var apiCategory = await _apiClient.Categories.GetById(category.Id).IsSuccessWithContent();
-
-        Assert.That(apiCategory, Is.Not.Null);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(apiCategory.Id, Is.EqualTo(category.Id));
-            Assert.That(apiCategory.Name, Is.EqualTo(category.Name));
-            Assert.That(apiCategory.OperationTypeId, Is.EqualTo((int)category.OperationType));
-        });
-    }
-
-    [Test]
     public async Task CreateTest()
     {
         _dbClient.Save();
@@ -93,33 +52,113 @@ public class CategoryTests
     }
 
     [Test]
-    public async Task UpdateTest()
+    public async Task DeleteTest()
     {
         var category = _user.WithCategory();
         _dbClient.Save();
 
-        var request = new CategoriesClient.SaveRequest
-        {
-            Name = category.Name,
-            OperationTypeId = (int)category.OperationType,
-            Color = "#606217",
-            Order = 217,
-            ParentId = null,
-        };
+        await _apiClient.Categories.Delete(category.Id).IsSuccess();
 
-        await _apiClient.Categories.Update(category.Id, request).IsSuccess();
-        var dbCategory = await _dbClient.CreateApplicationDbContext().Categories.FirstOrDefaultAsync(_user.Id, category.Id);
+        await using var context = _dbClient.CreateApplicationDbContext();
+
+        var dbCategory = await context.Categories
+            .FirstOrDefaultAsync(_user.Id, category.Id);
+
+        Assert.That(dbCategory, Is.Null);
+
+        dbCategory = await context.Categories
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(_user.Id, category.Id);
 
         Assert.That(dbCategory, Is.Not.Null);
+        Assert.That(dbCategory.IsDeleted, Is.True);
+    }
+
+    [Test]
+    public async Task GetByIdTest()
+    {
+        var category = _user.WithCategory();
+        _dbClient.Save();
+
+        var apiCategory = await _apiClient.Categories.GetById(category.Id).IsSuccessWithContent();
+
+        Assert.That(apiCategory, Is.Not.Null);
 
         Assert.Multiple(() =>
         {
-            Assert.That(dbCategory.Name, Is.EqualTo(request.Name));
-            Assert.That(dbCategory.TypeId, Is.EqualTo(request.OperationTypeId));
-            Assert.That(dbCategory.Color, Is.EqualTo(request.Color));
-            Assert.That(dbCategory.Order, Is.EqualTo(request.Order));
-            Assert.That(dbCategory.ParentId, Is.EqualTo(request.ParentId));
+            Assert.That(apiCategory.Id, Is.EqualTo(category.Id));
+            Assert.That(apiCategory.Name, Is.EqualTo(category.Name));
+            Assert.That(apiCategory.OperationTypeId, Is.EqualTo((int)category.OperationType));
         });
+    }
+
+    [Test]
+    [TestCase(OperationTypes.Costs)]
+    [TestCase(OperationTypes.Income)]
+    public async Task GetTest(OperationTypes operationType)
+    {
+        TestCategory[] categories =
+        [
+            _user.WithCategory().SetOperationType(operationType),
+            _user.WithCategory().SetOperationType(operationType),
+            _user.WithCategory().SetOperationType(operationType),
+        ];
+
+        _dbClient.Save();
+
+        var apiCategories = await _apiClient.Categories.Get((int)operationType).IsSuccessWithContent();
+        Assert.That(apiCategories, Is.Not.Null);
+        Assert.That(apiCategories.Count, Is.GreaterThanOrEqualTo(3));
+
+        var testCategories = categories.ExceptBy(apiCategories.Select(x => x.Id), category => category.Id).ToArray();
+        Assert.That(testCategories, Is.Not.Null);
+        Assert.That(testCategories, Is.Empty);
+    }
+
+    [Test]
+    public async Task RestoreFailWhenNotDeletedTest()
+    {
+        var category = _user.WithCategory();
+        _dbClient.Save();
+
+        await _apiClient.Categories.Restore(category.Id).IsBadRequest();
+    }
+
+    [Test]
+    public async Task RestoreFailWhenNotExistTest()
+    {
+        _dbClient.Save();
+
+        await _apiClient.Categories.Restore(-1).IsNotFound();
+    }
+
+    [Test]
+    public async Task RestoreFailWhenParentDeletedTest()
+    {
+        var parent = _user.WithCategory();
+        var child = _user.WithCategory();
+        child.SetParent(parent);
+        _dbClient.Save();
+
+        await _apiClient.Categories.Delete(child.Id).IsSuccess();
+        await _apiClient.Categories.Delete(parent.Id).IsSuccess();
+
+        await _apiClient.Categories.Restore(child.Id).IsBadRequest();
+    }
+
+    [Test]
+    public async Task RestoreTest()
+    {
+        var category = _user.WithCategory().SetIsDeleted();
+        _dbClient.Save();
+
+        await _apiClient.Categories.Restore(category.Id).IsSuccess();
+
+        await using var context = _dbClient.CreateApplicationDbContext();
+
+        var dbCategory = await context.Categories.FirstOrDefaultAsync(_user.Id, category.Id);
+        Assert.That(dbCategory, Is.Not.Null);
+        Assert.That(dbCategory.IsDeleted, Is.False);
     }
 
     [Test]
@@ -154,71 +193,32 @@ public class CategoryTests
     }
 
     [Test]
-    public async Task DeleteTest()
+    public async Task UpdateTest()
     {
         var category = _user.WithCategory();
         _dbClient.Save();
 
-        await _apiClient.Categories.Delete(category.Id).IsSuccess();
+        var request = new CategoriesClient.SaveRequest
+        {
+            Name = category.Name,
+            OperationTypeId = (int)category.OperationType,
+            Color = "#606217",
+            Order = 217,
+            ParentId = null,
+        };
 
-        await using var context = _dbClient.CreateApplicationDbContext();
-
-        var dbCategory = await context.Categories
-            .FirstOrDefaultAsync(_user.Id, category.Id);
-
-        Assert.That(dbCategory, Is.Null);
-
-        dbCategory = await context.Categories
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(_user.Id, category.Id);
+        await _apiClient.Categories.Update(category.Id, request).IsSuccess();
+        var dbCategory = await _dbClient.CreateApplicationDbContext().Categories.FirstOrDefaultAsync(_user.Id, category.Id);
 
         Assert.That(dbCategory, Is.Not.Null);
-        Assert.That(dbCategory.IsDeleted, Is.EqualTo(true));
-    }
 
-    [Test]
-    public async Task RestoreTest()
-    {
-        var category = _user.WithCategory().SetIsDeleted();
-        _dbClient.Save();
-
-        await _apiClient.Categories.Restore(category.Id).IsSuccess();
-
-        await using var context = _dbClient.CreateApplicationDbContext();
-
-        var dbCategory = await context.Categories.FirstOrDefaultAsync(_user.Id, category.Id);
-        Assert.That(dbCategory, Is.Not.Null);
-        Assert.That(dbCategory.IsDeleted, Is.EqualTo(false));
-    }
-
-    [Test]
-    public async Task RestoreFailWhenNotDeletedTest()
-    {
-        var category = _user.WithCategory();
-        _dbClient.Save();
-
-        await _apiClient.Categories.Restore(category.Id).IsBadRequest();
-    }
-
-    [Test]
-    public async Task RestoreFailWhenNotExistTest()
-    {
-        _dbClient.Save();
-
-        await _apiClient.Categories.Restore(-1).IsNotFound();
-    }
-
-    [Test]
-    public async Task RestoreFailWhenParentDeletedTest()
-    {
-        var parent = _user.WithCategory();
-        var child = _user.WithCategory();
-        child.SetParent(parent);
-        _dbClient.Save();
-
-        await _apiClient.Categories.Delete(child.Id).IsSuccess();
-        await _apiClient.Categories.Delete(parent.Id).IsSuccess();
-
-        await _apiClient.Categories.Restore(child.Id).IsBadRequest();
+        Assert.Multiple(() =>
+        {
+            Assert.That(dbCategory.Name, Is.EqualTo(request.Name));
+            Assert.That(dbCategory.TypeId, Is.EqualTo(request.OperationTypeId));
+            Assert.That(dbCategory.Color, Is.EqualTo(request.Color));
+            Assert.That(dbCategory.Order, Is.EqualTo(request.Order));
+            Assert.That(dbCategory.ParentId, Is.EqualTo(request.ParentId));
+        });
     }
 }

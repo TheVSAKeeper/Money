@@ -22,55 +22,6 @@ public class RegularOperationTests
     }
 
     [Test]
-    public async Task GetTest()
-    {
-        var category = _user.WithCategory();
-
-        TestRegularOperation[] operations =
-        [
-            category.WithRegularOperation(),
-            category.WithRegularOperation(),
-            category.WithRegularOperation(),
-        ];
-
-        _dbClient.Save();
-
-        var apiOperations = await _apiClient.RegularOperations.Get().IsSuccessWithContent();
-        Assert.That(apiOperations, Is.Not.Null);
-        Assert.That(apiOperations, Has.Length.GreaterThanOrEqualTo(operations.Length));
-
-        var testOperations = operations.ExceptBy(apiOperations.Select(x => x.Id), operation => operation.Id).ToArray();
-        Assert.That(testOperations, Is.Not.Null);
-        Assert.That(testOperations, Is.Empty);
-    }
-
-    [Test]
-    public async Task GetByIdTest()
-    {
-        var place = _user.WithPlace();
-        var operation = _user.WithRegularOperation().SetPlace(place);
-        _dbClient.Save();
-
-        var apiOperation = await _apiClient.RegularOperations.GetById(operation.Id).IsSuccessWithContent();
-
-        Assert.That(apiOperation, Is.Not.Null);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(apiOperation.Id, Is.EqualTo(operation.Id));
-            Assert.That(apiOperation.Comment, Is.EqualTo(operation.Comment));
-            Assert.That(apiOperation.CategoryId, Is.EqualTo(operation.Category.Id));
-            Assert.That(apiOperation.Name, Is.EqualTo(operation.Name));
-            Assert.That(apiOperation.Place, Is.EqualTo(operation.Place?.Name));
-            Assert.That(apiOperation.TimeTypeId, Is.EqualTo((int)operation.TimeType));
-            Assert.That(apiOperation.TimeValue, Is.EqualTo(operation.TimeValue));
-            Assert.That(apiOperation.DateFrom, Is.EqualTo(operation.DateFrom));
-            Assert.That(apiOperation.DateTo, Is.EqualTo(operation.DateTo));
-            Assert.That(apiOperation.RunTime, Is.EqualTo(operation.RunTime));
-        });
-    }
-
-    [Test]
     public async Task CreateTest()
     {
         var category = _user.WithCategory();
@@ -118,52 +69,6 @@ public class RegularOperationTests
     }
 
     [Test]
-    public async Task UpdateTest()
-    {
-        var operation = _user.WithRegularOperation();
-        var updatedCategory = _user.WithCategory();
-        _dbClient.Save();
-
-        var place = _user.WithPlace();
-
-        var request = new RegularOperationsClient.SaveRequest
-        {
-            Comment = "updateComment",
-            CategoryId = updatedCategory.Id,
-            Name = "updateName",
-            Place = place.Name,
-            DateFrom = DateTime.Now.Date.AddDays(1),
-            DateTo = DateTime.Now.Date.AddDays(1),
-            TimeTypeId = (int)RegularOperationTimeTypes.EveryWeek,
-            TimeValue = 3,
-        };
-
-        await _apiClient.RegularOperations.Update(operation.Id, request).IsSuccess();
-        var dbOperation = await _dbClient.CreateApplicationDbContext().RegularOperations.FirstOrDefaultAsync(_user.Id, operation.Id);
-        var dbPlace = await _dbClient.CreateApplicationDbContext().Places.FirstOrDefaultAsync(x => x.UserId == _user.Id && x.Name == place.Name);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(dbOperation, Is.Not.Null);
-            Assert.That(dbPlace, Is.Not.Null);
-        });
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(dbOperation.Name, Is.EqualTo(request.Name));
-            Assert.That(dbOperation.Sum, Is.EqualTo(request.Sum));
-            Assert.That(dbOperation.Comment, Is.EqualTo(request.Comment));
-            Assert.That(dbOperation.CategoryId, Is.EqualTo(request.CategoryId));
-            Assert.That(dbPlace.Name, Is.EqualTo(request.Place));
-            Assert.That(dbOperation.TimeTypeId, Is.EqualTo(request.TimeTypeId));
-            Assert.That(dbOperation.TimeValue, Is.EqualTo(request.TimeValue));
-            Assert.That(dbOperation.DateFrom, Is.EqualTo(request.DateFrom));
-            Assert.That(dbOperation.DateTo, Is.EqualTo(request.DateTo));
-            Assert.That(dbOperation.RunTime, Is.Not.Null);
-        });
-    }
-
-    [Test]
     public async Task DeleteTest()
     {
         var operation = _user.WithRegularOperation();
@@ -182,7 +87,56 @@ public class RegularOperationTests
             .FirstOrDefaultAsync(_user.Id, operation.Id);
 
         Assert.That(dbOperation, Is.Not.Null);
-        Assert.That(dbOperation.IsDeleted, Is.EqualTo(true));
+        Assert.That(dbOperation.IsDeleted, Is.True);
+    }
+
+    [Test]
+    public async Task GetByIdTest()
+    {
+        var place = _user.WithPlace();
+        var operation = _user.WithRegularOperation().SetPlace(place);
+        _dbClient.Save();
+
+        var apiOperation = await _apiClient.RegularOperations.GetById(operation.Id).IsSuccessWithContent();
+
+        Assert.That(apiOperation, Is.Not.Null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(apiOperation.Id, Is.EqualTo(operation.Id));
+            Assert.That(apiOperation.Comment, Is.EqualTo(operation.Comment));
+            Assert.That(apiOperation.CategoryId, Is.EqualTo(operation.Category.Id));
+            Assert.That(apiOperation.Name, Is.EqualTo(operation.Name));
+            Assert.That(apiOperation.Place, Is.EqualTo(operation.Place?.Name));
+            Assert.That(apiOperation.TimeTypeId, Is.EqualTo((int)operation.TimeType));
+            Assert.That(apiOperation.TimeValue, Is.EqualTo(operation.TimeValue));
+            Assert.That(apiOperation.DateFrom, Is.EqualTo(operation.DateFrom));
+            Assert.That(apiOperation.DateTo, Is.EqualTo(operation.DateTo));
+            Assert.That(apiOperation.RunTime, Is.EqualTo(operation.RunTime));
+        });
+    }
+
+    [Test]
+    public async Task GetTest()
+    {
+        var category = _user.WithCategory();
+
+        TestRegularOperation[] operations =
+        [
+            category.WithRegularOperation(),
+            category.WithRegularOperation(),
+            category.WithRegularOperation(),
+        ];
+
+        _dbClient.Save();
+
+        var apiOperations = await _apiClient.RegularOperations.Get().IsSuccessWithContent();
+        Assert.That(apiOperations, Is.Not.Null);
+        Assert.That(apiOperations, Has.Length.GreaterThanOrEqualTo(operations.Length));
+
+        var testOperations = operations.ExceptBy(apiOperations.Select(x => x.Id), operation => operation.Id).ToArray();
+        Assert.That(testOperations, Is.Not.Null);
+        Assert.That(testOperations, Is.Empty);
     }
 
     [Test]
@@ -197,7 +151,7 @@ public class RegularOperationTests
 
         var dbOperation = await context.RegularOperations.FirstOrDefaultAsync(_user.Id, operation.Id);
         Assert.That(dbOperation, Is.Not.Null);
-        Assert.That(dbOperation.IsDeleted, Is.EqualTo(false));
+        Assert.That(dbOperation.IsDeleted, Is.False);
     }
 
     [Test]
@@ -265,5 +219,51 @@ public class RegularOperationTests
         Assert.That(dbOperation, Is.Not.Null);
         Assert.That(dbOperation.RunTime, Is.Not.Null);
         Assert.That(dbOperation.RunTime.Value, Is.EqualTo(runTime));
+    }
+
+    [Test]
+    public async Task UpdateTest()
+    {
+        var operation = _user.WithRegularOperation();
+        var updatedCategory = _user.WithCategory();
+        _dbClient.Save();
+
+        var place = _user.WithPlace();
+
+        var request = new RegularOperationsClient.SaveRequest
+        {
+            Comment = "updateComment",
+            CategoryId = updatedCategory.Id,
+            Name = "updateName",
+            Place = place.Name,
+            DateFrom = DateTime.Now.Date.AddDays(1),
+            DateTo = DateTime.Now.Date.AddDays(1),
+            TimeTypeId = (int)RegularOperationTimeTypes.EveryWeek,
+            TimeValue = 3,
+        };
+
+        await _apiClient.RegularOperations.Update(operation.Id, request).IsSuccess();
+        var dbOperation = await _dbClient.CreateApplicationDbContext().RegularOperations.FirstOrDefaultAsync(_user.Id, operation.Id);
+        var dbPlace = await _dbClient.CreateApplicationDbContext().Places.FirstOrDefaultAsync(x => x.UserId == _user.Id && x.Name == place.Name);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(dbOperation, Is.Not.Null);
+            Assert.That(dbPlace, Is.Not.Null);
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(dbOperation.Name, Is.EqualTo(request.Name));
+            Assert.That(dbOperation.Sum, Is.EqualTo(request.Sum));
+            Assert.That(dbOperation.Comment, Is.EqualTo(request.Comment));
+            Assert.That(dbOperation.CategoryId, Is.EqualTo(request.CategoryId));
+            Assert.That(dbPlace.Name, Is.EqualTo(request.Place));
+            Assert.That(dbOperation.TimeTypeId, Is.EqualTo(request.TimeTypeId));
+            Assert.That(dbOperation.TimeValue, Is.EqualTo(request.TimeValue));
+            Assert.That(dbOperation.DateFrom, Is.EqualTo(request.DateFrom));
+            Assert.That(dbOperation.DateTo, Is.EqualTo(request.DateTo));
+            Assert.That(dbOperation.RunTime, Is.Not.Null);
+        });
     }
 }

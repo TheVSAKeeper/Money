@@ -1,4 +1,5 @@
-﻿using Money.Data.Extensions;
+using Money.Business.Interfaces;
+using Money.Data.Extensions;
 
 namespace Money.Business.Services;
 
@@ -7,10 +8,22 @@ public class OperationsService(
     ApplicationDbContext context,
     UsersService usersService,
     CategoriesService categoriesService,
-    PlacesService placesService)
+    PlacesService placesService,
+    IOperationCacheService operationCache,
+    INotificationService notificationService)
 {
     public async Task<IEnumerable<Operation>> GetAsync(OperationFilter filter, CancellationToken cancellationToken = default)
     {
+        var shardName = environment.ShardName!;
+        var userId = environment.UserId;
+
+        var cached = await operationCache.GetAsync(shardName, userId, filter, cancellationToken);
+
+        if (cached != null)
+        {
+            return cached;
+        }
+
         var filteredOperations = FilterOperations(filter);
 
         var placeIds = await filteredOperations
@@ -25,7 +38,11 @@ public class OperationsService(
             .ThenBy(x => x.CategoryId)
             .ToListAsync(cancellationToken);
 
-        return models.Select(x => GetBusinessModel(x, places)).ToList();
+        var result = models.Select(x => GetBusinessModel(x, places)).ToList();
+
+        await operationCache.SetAsync(shardName, userId, filter, result, cancellationToken);
+
+        return result;
     }
 
     public async Task<Operation> GetByIdAsync(int id, CancellationToken cancellationToken = default)
@@ -64,6 +81,9 @@ public class OperationsService(
 
         await context.Operations.AddAsync(entity, cancellationToken);
         await context.SaveChangesAsync(cancellationToken);
+
+        await operationCache.InvalidateAllForUserAsync(environment.ShardName!, environment.UserId, cancellationToken);
+        await notificationService.PublishAsync(environment.UserId, environment.ShardName!, "OperationCreated", new { id = operationId, sum = model.Sum, date = model.Date });
         return operationId;
     }
 
@@ -84,6 +104,8 @@ public class OperationsService(
         entity.PlaceId = placeId;
 
         await context.SaveChangesAsync(cancellationToken);
+        await operationCache.InvalidateAllForUserAsync(environment.ShardName!, environment.UserId, cancellationToken);
+        await notificationService.PublishAsync(environment.UserId, environment.ShardName!, "OperationUpdated", new { id = model.Id });
     }
 
     public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
@@ -92,6 +114,8 @@ public class OperationsService(
         entity.IsDeleted = true;
         await placesService.CheckRemovePlaceAsync(entity.PlaceId, entity.Id, cancellationToken);
         await context.SaveChangesAsync(cancellationToken);
+        await operationCache.InvalidateAllForUserAsync(environment.ShardName!, environment.UserId, cancellationToken);
+        await notificationService.PublishAsync(environment.UserId, environment.ShardName!, "OperationDeleted", new { id });
     }
 
     public async Task RestoreAsync(int id, CancellationToken cancellationToken = default)
@@ -105,6 +129,8 @@ public class OperationsService(
         entity.IsDeleted = false;
         await placesService.CheckRestorePlaceAsync(entity.PlaceId, cancellationToken);
         await context.SaveChangesAsync(cancellationToken);
+        await operationCache.InvalidateAllForUserAsync(environment.ShardName!, environment.UserId, cancellationToken);
+        await notificationService.PublishAsync(environment.UserId, environment.ShardName!, "OperationRestored", new { id });
     }
 
     public async Task<IEnumerable<Operation>> UpdateBatchAsync(List<int> operationIds, int categoryId, CancellationToken cancellationToken = default)
@@ -133,6 +159,8 @@ public class OperationsService(
         }
 
         await context.SaveChangesAsync(cancellationToken);
+        await operationCache.InvalidateAllForUserAsync(environment.ShardName!, environment.UserId, cancellationToken);
+        await notificationService.PublishAsync(environment.UserId, environment.ShardName!, "OperationsBatchUpdated", new { ids = operationIds });
 
         return entities.Select(x => GetBusinessModel(x)).ToList();
     }
@@ -201,12 +229,12 @@ public class OperationsService(
             entities = entities.Where(x => filter.CategoryIds.Contains(x.CategoryId));
         }
 
-        if (string.IsNullOrEmpty(filter.Comment) == false)
+        if (!string.IsNullOrEmpty(filter.Comment))
         {
             entities = entities.Where(x => x.Comment != null && x.Comment.Contains(filter.Comment));
         }
 
-        if (string.IsNullOrEmpty(filter.Place) == false)
+        if (!string.IsNullOrEmpty(filter.Place))
         {
             var placesIds = context.Places
                 .Where(x => x.UserId == environment.UserId && x.Name.Contains(filter.Place))

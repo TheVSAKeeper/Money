@@ -19,4 +19,43 @@
             </MudCardContent>
         </MudCard>
     </MudItem>
+    <MudItem xs="12" sm="6" md="4" Class="d-flex">
+        <MudCard Class="cursor-pointer flex-grow-1" @onclick='() => Nav.NavigateTo("admin/caching")' Elevation="2">
+            <MudCardContent>
+                <MudStack Row AlignItems="AlignItems.Center" Spacing="3">
+                    <MudIcon Icon="@Icons.Material.Rounded.Speed" Color="Color.Secondary" Size="Size.Large" />
+                    <div>
+                        <MudText Typo="Typo.h6">Кэширование</MudText>
+                        <MudText Typo="Typo.body2" Style="opacity: 0.7">Redis: hit ratio, счётчики, flush</MudText>
+                    </div>
+                </MudStack>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="4" Class="d-flex">
+        <MudCard Class="cursor-pointer flex-grow-1" @onclick='() => Nav.NavigateTo("admin/pubsub")' Elevation="2">
+            <MudCardContent>
+                <MudStack Row AlignItems="AlignItems.Center" Spacing="3">
+                    <MudIcon Icon="@Icons.Material.Rounded.CellTower" Color="Color.Tertiary" Size="Size.Large" />
+                    <div>
+                        <MudText Typo="Typo.h6">Pub/Sub</MudText>
+                        <MudText Typo="Typo.body2" Style="opacity: 0.7">Каналы и уведомления</MudText>
+                    </div>
+                </MudStack>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="4" Class="d-flex">
+        <MudCard Class="cursor-pointer flex-grow-1" @onclick='() => Nav.NavigateTo("admin/email-queue")' Elevation="2">
+            <MudCardContent>
+                <MudStack Row AlignItems="AlignItems.Center" Spacing="3">
+                    <MudIcon Icon="@Icons.Material.Rounded.Email" Color="Color.Primary" Size="Size.Large" />
+                    <div>
+                        <MudText Typo="Typo.h6">Очередь email</MudText>
+                        <MudText Typo="Typo.body2" Style="opacity: 0.7">Мониторинг отправки писем</MudText>
+                    </div>
+                </MudStack>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
 </MudGrid>

@@ -1,0 +1,175 @@
+@page "/admin/email-queue"
+@attribute [Authorize]
+@using Money.ApiClient
+@implements IDisposable
+
+@inject MoneyClient Client
+@inject NotificationService Notifications
+
+<PageTitle>Очередь email</PageTitle>
+
+<MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+    <MudText Typo="Typo.h5">Очередь email</MudText>
+    <MudButton Variant="Variant.Outlined"
+               Color="Color.Secondary"
+               StartIcon="@Icons.Material.Rounded.Science"
+               OnClick="SimulateAsync"
+               Disabled="_simulating">
+        Демо-данные
+    </MudButton>
+</MudStack>
+
+@if (_stats == null)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudGrid Class="mb-4">
+        <MudItem xs="12" sm="4">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudStack Spacing="1">
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Основная очередь</MudText>
+                    <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Rounded.Email"
+                                 Color="@(_stats.QueueLength > 0 ? Color.Warning : Color.Success)" />
+                        <MudText Typo="Typo.h5">@_stats.QueueLength</MudText>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="4">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudStack Spacing="1">
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Retry-очередь</MudText>
+                    <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Rounded.Refresh"
+                                 Color="@(_stats.RetryLength > 0 ? Color.Warning : Color.Default)" />
+                        <MudText Typo="Typo.h5">@_stats.RetryLength</MudText>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="4">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudStack Spacing="1">
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Dead Letter Queue</MudText>
+                    <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Rounded.ErrorOutline"
+                                 Color="@(_stats.DlqLength > 0 ? Color.Error : Color.Default)" />
+                        <MudText Typo="Typo.h5">@_stats.DlqLength</MudText>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    @if (_stats.DlqLength > 0)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4">
+            В DLQ накопилось @_stats.DlqLength сообщений, которые не удалось отправить.
+        </MudAlert>
+    }
+    else if (_stats.RetryLength > 0)
+    {
+        <MudAlert Severity="Severity.Warning" Class="mb-4">
+            @_stats.RetryLength сообщений ожидают повторной отправки.
+        </MudAlert>
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Info" Class="mb-4">Очереди в норме.</MudAlert>
+    }
+
+    <MudPaper Class="pa-4 mb-4" Elevation="2">
+        <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+            <MudStack Spacing="0">
+                <MudText Typo="Typo.h6">Основная очередь</MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">Обновляется в реальном времени</MudText>
+            </MudStack>
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                     Color="@(_stats.QueueLength > 0 ? Color.Warning : Color.Success)">
+                @_stats.QueueLength
+            </MudChip>
+        </MudStack>
+        @if (_stats.RecentMessages.Count == 0)
+        {
+            <MudText Class="mud-text-secondary">Очередь пуста.</MudText>
+        }
+        else
+        {
+            <MudDataGrid Items="_stats.RecentMessages" Dense="true" Hover="true" Bordered="true">
+                <Columns>
+                    <PropertyColumn Property="x => x.ReceiverEmail" Title="Email получателя" />
+                    <PropertyColumn Property="x => x.Title" Title="Тема" />
+                    <PropertyColumn Property="@(x => x.EnqueuedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss"))"
+                                    Title="Добавлено" />
+                </Columns>
+            </MudDataGrid>
+        }
+    </MudPaper>
+
+    <MudPaper Class="pa-4 mb-4" Elevation="2">
+        <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+            <MudStack Spacing="0">
+                <MudText Typo="Typo.h6">Retry-очередь</MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">Ожидают повторной отправки (сортировка по
+                                                                        времени попытки)
+                </MudText>
+            </MudStack>
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                     Color="@(_stats.RetryLength > 0 ? Color.Warning : Color.Default)">
+                @_stats.RetryLength
+            </MudChip>
+        </MudStack>
+        @if (_stats.RetryMessages.Count == 0)
+        {
+            <MudText Class="mud-text-secondary">Retry-очередь пуста.</MudText>
+        }
+        else
+        {
+            <MudDataGrid Items="_stats.RetryMessages" Dense="true" Hover="true" Bordered="true">
+                <Columns>
+                    <PropertyColumn Property="x => x.ReceiverEmail" Title="Email получателя" />
+                    <PropertyColumn Property="x => x.Title" Title="Тема" />
+                    <PropertyColumn Property="x => x.RetryCount" Title="Попыток" />
+                    <PropertyColumn Property="@(x => x.EnqueuedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss"))"
+                                    Title="Добавлено" />
+                    <PropertyColumn
+                        Property="@(x => x.NextRetryAt.HasValue ? x.NextRetryAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss") : "—")"
+                        Title="Следующая попытка" />
+                </Columns>
+            </MudDataGrid>
+        }
+    </MudPaper>
+
+    <MudPaper Class="pa-4" Elevation="2">
+        <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+            <MudStack Spacing="0">
+                <MudText Typo="Typo.h6">Dead Letter Queue</MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">Недоставленные письма (новейшие первыми)
+                </MudText>
+            </MudStack>
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                     Color="@(_stats.DlqLength > 0 ? Color.Error : Color.Default)">
+                @_stats.DlqLength
+            </MudChip>
+        </MudStack>
+        @if (_stats.DlqMessages.Count == 0)
+        {
+            <MudText Class="mud-text-secondary">DLQ пуста.</MudText>
+        }
+        else
+        {
+            <MudDataGrid Items="_stats.DlqMessages" Dense="true" Hover="true" Bordered="true">
+                <Columns>
+                    <PropertyColumn Property="x => x.ReceiverEmail" Title="Email получателя" />
+                    <PropertyColumn Property="x => x.Title" Title="Тема" />
+                    <PropertyColumn Property="x => x.RetryCount" Title="Попыток" />
+                    <PropertyColumn Property="@(x => x.EnqueuedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss"))"
+                                    Title="Добавлено" />
+                </Columns>
+            </MudDataGrid>
+        }
+    </MudPaper>
+}

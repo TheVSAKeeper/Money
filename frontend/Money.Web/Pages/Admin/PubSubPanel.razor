@@ -1,0 +1,50 @@
+@page "/admin/pubsub"
+@attribute [Authorize]
+@using Money.ApiClient
+@implements IDisposable
+
+@inject MoneyClient Client
+
+<PageTitle>Pub/Sub</PageTitle>
+
+<MudText Typo="Typo.h5" GutterBottom>Redis Pub/Sub</MudText>
+
+@if (_metrics == null)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="2">
+        <MudText Typo="Typo.h6" GutterBottom>Статус моста</MudText>
+        <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon
+                Icon="@(_metrics.PatternSubscribers > 0 ? Icons.Material.Rounded.CheckCircle : Icons.Material.Rounded.ErrorOutline)"
+                Color="@(_metrics.PatternSubscribers > 0 ? Color.Success : Color.Error)" />
+            <MudText>
+                NotificationBridgeService:
+                @if (_metrics.PatternSubscribers > 0)
+                {
+                    <strong>активен</strong>
+                }
+                else
+                {
+                    <strong>не запущен</strong>
+                }
+            </MudText>
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                     Color="@(_metrics.PatternSubscribers > 0 ? Color.Success : Color.Default)">
+                PSUBSCRIBE events:* × @_metrics.PatternSubscribers
+            </MudChip>
+        </MudStack>
+    </MudPaper>
+
+    <MudPaper Class="pa-4" Elevation="2">
+        <MudStack Spacing="0">
+            <MudText Typo="Typo.h6">Мониторинг</MudText>
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                Обновление каждые 30 сек
+            </MudText>
+        </MudStack>
+    </MudPaper>
+}
