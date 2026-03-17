@@ -15,6 +15,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<DebtOwner> DebtOwners { get; set; } = null!;
     public DbSet<Car> Cars { get; set; } = null!;
     public DbSet<CarEvent> CarEvents { get; set; } = null!;
+    public DbSet<OutboxEvent> OutboxEvents { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

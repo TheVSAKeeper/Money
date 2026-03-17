@@ -1,6 +1,7 @@
 @page "/admin/caching"
 @attribute [Authorize]
 @using Money.ApiClient
+@using Money.Web.Components.Charts
 @using static ApiClient.AdminClient
 @implements IDisposable
 
@@ -145,11 +146,8 @@ else
                 </MudText>
                 @if (_stats.HitsTotal + _stats.MissesTotal > 0)
                 {
-                    <MudChart ChartType="ChartType.Donut"
-                              InputData="@_hitMissData"
-                              InputLabels="@_hitMissLabels"
-                              Width="100%"
-                              Height="200px" />
+                    <Chart Config="@_hitMissConfig"
+                           @ref="_hitMissChart" />
                 }
                 else
                 {

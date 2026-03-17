@@ -1,0 +1,155 @@
+@page "/admin/analytics"
+@using Money.ApiClient
+@using Money.Web.Components.Charts
+@attribute [Authorize]
+
+<PageTitle>Аналитика</PageTitle>
+
+<MudText Typo="Typo.h5"
+         GutterBottom>Аналитика ClickHouse
+</MudText>
+
+@if (_stats == null && _metricsPerMinute == null && _slowEndpoints == null)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudPaper Class="pa-4 mb-6"
+              Elevation="2">
+        <MudStack Row
+                  Justify="Justify.SpaceBetween"
+                  AlignItems="AlignItems.Center"
+                  Class="mb-3">
+            <MudText Typo="Typo.h6">Таблицы ClickHouse</MudText>
+            @if (_stats?.LastSyncUtc != null)
+            {
+                <MudText Typo="Typo.caption"
+                         Class="mud-text-secondary">
+                    Последняя синхронизация: @_stats.LastSyncUtc.Value.ToLocalTime().ToString("HH:mm:ss")
+                </MudText>
+            }
+            <MudChip T="string"
+                     Size="Size.Small"
+                     Variant="Variant.Outlined"
+                     Color="Color.Default"
+                     Icon="@Icons.Material.Rounded.Refresh">
+                Обновление каждые 30 сек
+            </MudChip>
+        </MudStack>
+
+        @if (_stats?.Tables is { Count: > 0 })
+        {
+            <MudDataGrid T="AdminClient.ClickHouseTableInfo"
+                         Items="_stats.Tables"
+                         Dense
+                         Hover
+                         SortMode="SortMode.Multiple"
+                         Elevation="0">
+                <Columns>
+                    <PropertyColumn Property="t => t.Name"
+                                    Title="Таблица"
+                                    Sortable="true" />
+                    <TemplateColumn Title="Строк"
+                                    SortBy="@(t => t.Rows)"
+                                    Sortable="true">
+                        <CellTemplate>
+                            <MudText Typo="Typo.body2">@context.Item.Rows.ToString("N0")</MudText>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Размер"
+                                    SortBy="@(t => t.Bytes)"
+                                    Sortable="true">
+                        <CellTemplate>
+                            <MudText Typo="Typo.body2">@FormatBytes(context.Item.Bytes)</MudText>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <PropertyColumn Property="t => t.Partitions"
+                                    Title="Партиции"
+                                    Sortable="true" />
+                </Columns>
+            </MudDataGrid>
+        }
+        else
+        {
+            <MudText Typo="Typo.body2"
+                     Class="mud-text-secondary">Нет данных
+            </MudText>
+        }
+    </MudPaper>
+
+    <MudPaper Class="pa-4 mb-6"
+              Elevation="2">
+        <MudText Typo="Typo.h6"
+                 GutterBottom>API-запросы в минуту (последние 30 мин)
+        </MudText>
+
+        @if (_metricsPerMinute?.Count > 0)
+        {
+            <Chart Config="@_chartConfig"
+                   @ref="_chart" />
+        }
+        else
+        {
+            <MudText Typo="Typo.body2"
+                     Class="mud-text-secondary">Нет данных за последние 30 минут
+            </MudText>
+        }
+    </MudPaper>
+
+    <MudPaper Class="pa-4 mb-6"
+              Elevation="2">
+        <MudText Typo="Typo.h6"
+                 GutterBottom>Top-10 медленных endpoint'ов
+        </MudText>
+
+        @if (_slowEndpoints is { Count: > 0 })
+        {
+            <MudDataGrid T="AdminClient.SlowEndpointInfo"
+                         Items="_slowEndpoints"
+                         Dense
+                         Hover
+                         SortMode="SortMode.Multiple"
+                         Elevation="0">
+                <Columns>
+                    <PropertyColumn Property="e => e.Endpoint"
+                                    Title="Endpoint"
+                                    Sortable="true" />
+                    <TemplateColumn Title="Avg (мс)"
+                                    SortBy="@(e => e.AvgDurationMs)"
+                                    Sortable="true">
+                        <CellTemplate>
+                            <MudText Typo="Typo.body2"
+                                     Color="@(context.Item.AvgDurationMs > 500 ? Color.Warning : Color.Default)">
+                                @context.Item.AvgDurationMs.ToString("F1")
+                            </MudText>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="P95 (мс)"
+                                    SortBy="@(e => e.P95DurationMs)"
+                                    Sortable="true">
+                        <CellTemplate>
+                            <MudText Typo="Typo.body2">@context.Item.P95DurationMs.ToString("F1")</MudText>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Error rate"
+                                    SortBy="@(e => e.ErrorRatePercent)"
+                                    Sortable="true">
+                        <CellTemplate>
+                            <MudText Typo="Typo.body2"
+                                     Color="@(context.Item.ErrorRatePercent > 5 ? Color.Error : Color.Default)">
+                                @context.Item.ErrorRatePercent.ToString("F1")%
+                            </MudText>
+                        </CellTemplate>
+                    </TemplateColumn>
+                </Columns>
+            </MudDataGrid>
+        }
+        else
+        {
+            <MudText Typo="Typo.body2"
+                     Class="mud-text-secondary">Нет данных
+            </MudText>
+        }
+    </MudPaper>
+}

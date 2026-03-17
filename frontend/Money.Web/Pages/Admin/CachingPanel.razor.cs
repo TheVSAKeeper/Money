@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Components;
+using Money.Web.Components.Charts;
+using Money.Web.Models.Charts.Config;
 using Timer = System.Timers.Timer;
 using static Money.ApiClient.AdminClient;
 
@@ -6,14 +8,28 @@ namespace Money.Web.Pages.Admin;
 
 public sealed partial class CachingPanel
 {
-    private readonly string[] _hitMissLabels = ["Hits", "Misses"];
+    private readonly ChartConfig _hitMissConfig = new()
+    {
+        Type = "doughnut",
+        Options = new()
+        {
+            Responsive = true,
+            Plugins = new()
+            {
+                Legend = new()
+                {
+                    Display = true,
+                    Position = "right",
+                },
+            },
+        },
+    };
 
     private CacheStatsResponse? _stats;
     private List<CacheCounterInfo>? _counters;
     private LockStatsResponse? _lockStats;
     private Timer? _timer;
-
-    private double[] _hitMissData = [];
+    private Chart? _hitMissChart;
 
     private bool _flushing;
     private string? _flushMessage;
@@ -67,7 +83,19 @@ public sealed partial class CachingPanel
             }
 
             _stats = result.Content;
-            _hitMissData = [_stats.HitsTotal, _stats.MissesTotal];
+
+            _hitMissConfig.Data.Labels = ["Hits", "Misses"];
+            _hitMissConfig.Data.Datasets.Clear();
+            _hitMissConfig.Data.Datasets.Add(new()
+            {
+                BackgroundColor = new[] { ChartColors.GetColor(2), ChartColors.GetColor(1) },
+                Data = [_stats.HitsTotal, _stats.MissesTotal],
+            });
+
+            if (_hitMissChart != null)
+            {
+                await _hitMissChart.UpdateAsync();
+            }
         }
         catch (Exception ex)
         {

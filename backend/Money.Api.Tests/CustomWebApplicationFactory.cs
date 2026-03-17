@@ -15,6 +15,7 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProg
     public string? FundukDb { get; set; }
     public string? BurundukDb { get; set; }
     public string? RedisConnectionString { get; set; }
+    public string? ClickHouseConnectionString { get; set; }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -42,6 +43,14 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProg
         if (BurundukDb != null)
         {
             builderConfig.AddInMemoryCollection([new("ConnectionStrings:BurundukDb", BurundukDb)]);
+        }
+
+        if (ClickHouseConnectionString != null)
+        {
+            builderConfig.AddInMemoryCollection([
+                new("ConnectionStrings:clickhousedb", ClickHouseConnectionString),
+                new("ClickHouse:SyncIntervalSeconds", "0.1"),
+            ]);
         }
 
         var configRoot = builderConfig.Build();

@@ -3,6 +3,7 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
+    <PackageVersion Include="Aspire.ClickHouse.Driver" Version="13.1.2" />
     <PackageVersion Include="Aspire.Npgsql" Version="13.1.2" />
     <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="13.1.2" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.5" />
@@ -51,6 +52,7 @@
     <PackageVersion Include="ClosedXML" Version="0.105.0" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.11.0" />
     <PackageVersion Include="Testcontainers.Redis" Version="4.11.0" />
+    <PackageVersion Include="Testcontainers.ClickHouse" Version="4.11.0" />
     <PackageVersion Include="Aspire.StackExchange.Redis" Version="13.1.2" />
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" Version="10.0.5" />
     <PackageVersion Include="System.IO.Hashing" Version="10.0.5" />

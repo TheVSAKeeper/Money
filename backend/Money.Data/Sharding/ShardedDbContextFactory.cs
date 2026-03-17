@@ -29,7 +29,7 @@ public sealed class ShardedDbContextFactory
 
     public IEnumerable<string> ShardNames => _dataSources.Keys;
 
-    public ApplicationDbContext Create(string shardName)
+    public ApplicationDbContext Create(string shardName, Action<DbContextOptionsBuilder>? configure = null)
     {
         if (!_dataSources.TryGetValue(shardName, out var value))
         {
@@ -49,6 +49,8 @@ public sealed class ShardedDbContextFactory
 
         builder.UseSnakeCaseNamingConvention();
         builder.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
+
+        configure?.Invoke(builder);
 
         _logger.LogDebug("Создан DbContext для шарда {ShardName}", shardName);
 

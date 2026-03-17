@@ -3,56 +3,126 @@
 
 <PageTitle>Администрирование</PageTitle>
 
-<MudText Typo="Typo.h5" GutterBottom>Администрирование</MudText>
+<MudText GutterBottom
+         Typo="Typo.h5">Администрирование
+</MudText>
 
 <MudGrid>
-    <MudItem xs="12" sm="6" md="4" Class="d-flex">
-        <MudCard Class="cursor-pointer flex-grow-1" @onclick='() => Nav.NavigateTo("admin/sharding")' Elevation="2">
+    <MudItem Class="d-flex"
+             md="4"
+             sm="6"
+             xs="12">
+        <MudCard Class="cursor-pointer flex-grow-1"
+                 Elevation="2"
+                 @onclick='() => Nav.NavigateTo("admin/sharding")'>
             <MudCardContent>
-                <MudStack Row AlignItems="AlignItems.Center" Spacing="3">
-                    <MudIcon Icon="@Icons.Material.Rounded.Storage" Color="Color.Primary" Size="Size.Large" />
+                <MudStack AlignItems="AlignItems.Center"
+                          Row
+                          Spacing="3">
+                    <MudIcon Color="Color.Primary"
+                             Icon="@Icons.Material.Rounded.Storage"
+                             Size="Size.Large" />
                     <div>
                         <MudText Typo="Typo.h6">Шардирование</MudText>
-                        <MudText Typo="Typo.body2" Style="opacity: 0.7">Метрики и распределение данных</MudText>
+                        <MudText Style="opacity: 0.7"
+                                 Typo="Typo.body2">Метрики и распределение данных
+                        </MudText>
                     </div>
                 </MudStack>
             </MudCardContent>
         </MudCard>
     </MudItem>
-    <MudItem xs="12" sm="6" md="4" Class="d-flex">
-        <MudCard Class="cursor-pointer flex-grow-1" @onclick='() => Nav.NavigateTo("admin/caching")' Elevation="2">
+    <MudItem Class="d-flex"
+             md="4"
+             sm="6"
+             xs="12">
+        <MudCard Class="cursor-pointer flex-grow-1"
+                 Elevation="2"
+                 @onclick='() => Nav.NavigateTo("admin/caching")'>
             <MudCardContent>
-                <MudStack Row AlignItems="AlignItems.Center" Spacing="3">
-                    <MudIcon Icon="@Icons.Material.Rounded.Speed" Color="Color.Secondary" Size="Size.Large" />
+                <MudStack AlignItems="AlignItems.Center"
+                          Row
+                          Spacing="3">
+                    <MudIcon Color="Color.Secondary"
+                             Icon="@Icons.Material.Rounded.Speed"
+                             Size="Size.Large" />
                     <div>
                         <MudText Typo="Typo.h6">Кэширование</MudText>
-                        <MudText Typo="Typo.body2" Style="opacity: 0.7">Redis: hit ratio, счётчики, flush</MudText>
+                        <MudText Style="opacity: 0.7"
+                                 Typo="Typo.body2">Redis: hit ratio, счётчики, flush
+                        </MudText>
                     </div>
                 </MudStack>
             </MudCardContent>
         </MudCard>
     </MudItem>
-    <MudItem xs="12" sm="6" md="4" Class="d-flex">
-        <MudCard Class="cursor-pointer flex-grow-1" @onclick='() => Nav.NavigateTo("admin/pubsub")' Elevation="2">
+    <MudItem Class="d-flex"
+             md="4"
+             sm="6"
+             xs="12">
+        <MudCard Class="cursor-pointer flex-grow-1"
+                 @onclick='() => Nav.NavigateTo("admin/pubsub")'
+                 Elevation="2">
             <MudCardContent>
-                <MudStack Row AlignItems="AlignItems.Center" Spacing="3">
-                    <MudIcon Icon="@Icons.Material.Rounded.CellTower" Color="Color.Tertiary" Size="Size.Large" />
+                <MudStack Row
+                          AlignItems="AlignItems.Center"
+                          Spacing="3">
+                    <MudIcon Icon="@Icons.Material.Rounded.CellTower"
+                             Color="Color.Tertiary"
+                             Size="Size.Large" />
                     <div>
                         <MudText Typo="Typo.h6">Pub/Sub</MudText>
-                        <MudText Typo="Typo.body2" Style="opacity: 0.7">Каналы и уведомления</MudText>
+                        <MudText Typo="Typo.body2"
+                                 Style="opacity: 0.7">Каналы и уведомления
+                        </MudText>
                     </div>
                 </MudStack>
             </MudCardContent>
         </MudCard>
     </MudItem>
-    <MudItem xs="12" sm="6" md="4" Class="d-flex">
-        <MudCard Class="cursor-pointer flex-grow-1" @onclick='() => Nav.NavigateTo("admin/email-queue")' Elevation="2">
+    <MudItem xs="12"
+             sm="6"
+             md="4"
+             Class="d-flex">
+        <MudCard Class="cursor-pointer flex-grow-1"
+                 @onclick='() => Nav.NavigateTo("admin/email-queue")'
+                 Elevation="2">
             <MudCardContent>
-                <MudStack Row AlignItems="AlignItems.Center" Spacing="3">
-                    <MudIcon Icon="@Icons.Material.Rounded.Email" Color="Color.Primary" Size="Size.Large" />
+                <MudStack Row
+                          AlignItems="AlignItems.Center"
+                          Spacing="3">
+                    <MudIcon Icon="@Icons.Material.Rounded.Email"
+                             Color="Color.Primary"
+                             Size="Size.Large" />
                     <div>
                         <MudText Typo="Typo.h6">Очередь email</MudText>
-                        <MudText Typo="Typo.body2" Style="opacity: 0.7">Мониторинг отправки писем</MudText>
+                        <MudText Typo="Typo.body2"
+                                 Style="opacity: 0.7">Мониторинг отправки писем
+                        </MudText>
+                    </div>
+                </MudStack>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+    <MudItem xs="12"
+             sm="6"
+             md="4"
+             Class="d-flex">
+        <MudCard Class="cursor-pointer flex-grow-1"
+                 @onclick='() => Nav.NavigateTo("admin/analytics")'
+                 Elevation="2">
+            <MudCardContent>
+                <MudStack Row
+                          AlignItems="AlignItems.Center"
+                          Spacing="3">
+                    <MudIcon Icon="@Icons.Material.Rounded.Analytics"
+                             Color="Color.Primary"
+                             Size="Size.Large" />
+                    <div>
+                        <MudText Typo="Typo.h6">Аналитика</MudText>
+                        <MudText Typo="Typo.body2"
+                                 Style="opacity: 0.7">ClickHouse метрики и статистика
+                        </MudText>
                     </div>
                 </MudStack>
             </MudCardContent>

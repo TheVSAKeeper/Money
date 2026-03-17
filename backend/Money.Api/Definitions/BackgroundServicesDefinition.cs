@@ -16,5 +16,11 @@ public class BackgroundServicesDefinition : AppDefinition
         builder.Services.AddHostedService<CounterSyncService>();
         builder.Services.AddHostedService<NotificationBridgeService>();
         builder.Services.AddHostedService<AdminBridgeService>();
+
+        builder.Services.AddSingleton<ClickHouseSyncService>();
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<ClickHouseSyncService>());
+
+        builder.Services.AddSingleton<ClickHouseMetricsService>();
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<ClickHouseMetricsService>());
     }
 }

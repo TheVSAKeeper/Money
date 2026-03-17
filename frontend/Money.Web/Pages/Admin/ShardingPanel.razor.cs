@@ -1,3 +1,5 @@
+using Money.Web.Components.Charts;
+using Money.Web.Models.Charts.Config;
 using Timer = System.Timers.Timer;
 using static Money.ApiClient.AdminClient;
 
@@ -5,25 +7,68 @@ namespace Money.Web.Pages.Admin;
 
 public sealed partial class ShardingPanel
 {
-    private static readonly ChartOptions PartitionChartOptions = new()
+    private readonly ChartConfig _rowsChartConfig = new()
     {
-        YAxisFormat = "#,##0",
+        Type = "doughnut",
+        Options = new()
+        {
+            Responsive = true,
+            Plugins = new()
+            {
+                Legend = new()
+                {
+                    Display = true,
+                    Position = "right",
+                },
+            },
+        },
+    };
+
+    private readonly ChartConfig _sizeChartConfig = new()
+    {
+        Type = "doughnut",
+        Options = new()
+        {
+            Responsive = true,
+            Plugins = new()
+            {
+                Legend = new()
+                {
+                    Display = true,
+                    Position = "right",
+                },
+            },
+        },
+    };
+
+    private readonly ChartConfig _partitionChartConfig = new()
+    {
+        Type = "bar",
+        Options = new()
+        {
+            Responsive = true,
+            Plugins = new()
+            {
+                Legend = new()
+                {
+                    Display = false,
+                },
+            },
+        },
     };
 
     private ShardsMetricsResponse? _response;
     private List<UserShardInfo>? _users;
     private string _userSearch = "";
     private Timer? _timer;
-    private string[] _xAxisLabels = [];
-    private double[] _rowsData = [];
-    private double[] _sizeData = [];
     private long _totalRows;
     private long _totalDbSize;
+    private Chart? _rowsChart;
+    private Chart? _sizeChart;
 
     private List<PartitionListResponse>? _partitions;
     private string _selectedPartitionShard = "";
-    private List<ChartSeries> _partitionChartSeries = [];
-    private string[] _partitionMonthLabels = [];
+    private Chart? _partitionChart;
 
     private PartitionListResponse? SelectedShardPartitions => _partitions?.FirstOrDefault(p => p.Shard == _selectedPartitionShard);
 
@@ -74,11 +119,36 @@ public sealed partial class ShardingPanel
             _response = result.Content;
 
             var shards = _response.Shards.OrderBy(x => x.Key).ToArray();
-            _xAxisLabels = shards.Select(x => x.Key).ToArray();
-            _rowsData = shards.Select(x => (double)x.Value.TotalRows).ToArray();
-            _sizeData = shards.Select(x => (double)x.Value.DbSizeBytes).ToArray();
+            var labels = shards.Select(x => x.Key).ToList();
+
+            _rowsChartConfig.Data.Labels = labels;
+            _rowsChartConfig.Data.Datasets.Clear();
+            _rowsChartConfig.Data.Datasets.Add(new()
+            {
+                BackgroundColor = shards.Select((_, i) => (object)ChartColors.GetColor(i)).ToArray(),
+                Data = shards.Select(x => (decimal?)x.Value.TotalRows).ToList(),
+            });
+
+            _sizeChartConfig.Data.Labels = labels;
+            _sizeChartConfig.Data.Datasets.Clear();
+            _sizeChartConfig.Data.Datasets.Add(new()
+            {
+                BackgroundColor = shards.Select((_, i) => (object)ChartColors.GetColor(i)).ToArray(),
+                Data = shards.Select(x => (decimal?)x.Value.DbSizeBytes).ToList(),
+            });
+
             _totalRows = shards.Sum(x => x.Value.TotalRows);
             _totalDbSize = shards.Sum(x => x.Value.DbSizeBytes);
+
+            if (_rowsChart != null)
+            {
+                await _rowsChart.UpdateAsync();
+            }
+
+            if (_sizeChart != null)
+            {
+                await _sizeChart.UpdateAsync();
+            }
         }
         catch (Exception ex)
         {
@@ -143,25 +213,27 @@ public sealed partial class ShardingPanel
 
         if (shardData == null)
         {
-            _partitionMonthLabels = [];
-            _partitionChartSeries = [];
+            _partitionChartConfig.Data.Labels.Clear();
+            _partitionChartConfig.Data.Datasets.Clear();
+            _ = _partitionChart?.UpdateAsync();
             return;
         }
 
         var sorted = shardData.Partitions.OrderBy(p => p.Name).ToArray();
 
-        _partitionMonthLabels = sorted
+        _partitionChartConfig.Data.Labels = sorted
             .Select(p => $"{p.RangeStart.Year}-{p.RangeStart.Month:D2}")
-            .ToArray();
+            .ToList();
 
-        _partitionChartSeries =
-        [
-            new()
-            {
-                Name = "Размер (байт)",
-                Data = sorted.Select(p => (double)p.SizeBytes).ToArray(),
-            },
-        ];
+        _partitionChartConfig.Data.Datasets.Clear();
+        _partitionChartConfig.Data.Datasets.Add(new()
+        {
+            Label = "Размер (байт)",
+            BackgroundColor = ChartColors.GetColor(0),
+            Data = sorted.Select(p => (decimal?)p.SizeBytes).ToList(),
+        });
+
+        _ = _partitionChart?.UpdateAsync();
     }
 
     private void OnPartitionShardChanged(string shard)

@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Money.Data;
 using Money.Data.Sharding;
 using System.Collections.Concurrent;
+using Testcontainers.ClickHouse;
 using Testcontainers.PostgreSql;
 using Testcontainers.Redis;
 
@@ -65,12 +66,14 @@ public class Integration
             .Build();
 
         _redisContainer = new RedisBuilder("redis:8.2").Build();
+        _clickHouseContainer = new ClickHouseBuilder("clickhouse/clickhouse-server:26.2-alpine").Build();
 
         await Task.WhenAll(_routingContainer.StartAsync(),
             _dundukContainer.StartAsync(),
             _fundukContainer.StartAsync(),
             _burundukContainer.StartAsync(),
-            _redisContainer.StartAsync());
+            _redisContainer.StartAsync(),
+            _clickHouseContainer.StartAsync());
 
         CustomWebApplicationFactory<Program> webHostBuilder = new()
         {
@@ -79,6 +82,7 @@ public class Integration
             FundukDb = _fundukContainer.GetConnectionString(),
             BurundukDb = _burundukContainer.GetConnectionString(),
             RedisConnectionString = _redisContainer.GetConnectionString(),
+            ClickHouseConnectionString = _clickHouseContainer.GetConnectionString(),
         };
 
         webHostBuilder.Server.PreserveExecutionContext = true;
@@ -101,7 +105,8 @@ public class Integration
             _dundukContainer.DisposeAsync().AsTask(),
             _fundukContainer.DisposeAsync().AsTask(),
             _burundukContainer.DisposeAsync().AsTask(),
-            _redisContainer.DisposeAsync().AsTask());
+            _redisContainer.DisposeAsync().AsTask(),
+            _clickHouseContainer.DisposeAsync().AsTask());
     }
 
 #pragma warning disable NUnit1032
@@ -110,5 +115,6 @@ public class Integration
     private static PostgreSqlContainer _fundukContainer = null!;
     private static PostgreSqlContainer _burundukContainer = null!;
     private static RedisContainer _redisContainer = null!;
+    private static ClickHouseContainer _clickHouseContainer = null!;
 #pragma warning restore NUnit1032
 }

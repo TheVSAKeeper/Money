@@ -66,6 +66,21 @@ public sealed class AdminClient(MoneyClient apiClient) : ApiClientExecutor(apiCl
         return PostAsync($"{BaseUri}/EmailQueue/simulate");
     }
 
+    public Task<ApiClientResponse<ClickHouseStatsResponse>> GetClickHouseStats()
+    {
+        return GetAsync<ClickHouseStatsResponse>($"{BaseUri}/ClickHouse/Stats");
+    }
+
+    public Task<ApiClientResponse<List<ApiMetricsPerMinute>>> GetApiMetricsPerMinute()
+    {
+        return GetAsync<List<ApiMetricsPerMinute>>($"{BaseUri}/ClickHouse/ApiMetrics");
+    }
+
+    public Task<ApiClientResponse<List<SlowEndpointInfo>>> GetSlowEndpoints()
+    {
+        return GetAsync<List<SlowEndpointInfo>>($"{BaseUri}/ClickHouse/SlowEndpoints");
+    }
+
     public class ShardsMetricsResponse
     {
         public Dictionary<string, ShardMetrics> Shards { get; set; } = [];
@@ -182,5 +197,33 @@ public sealed class AdminClient(MoneyClient apiClient) : ApiClientExecutor(apiCl
         public int RetryCount { get; set; }
         public DateTimeOffset EnqueuedAt { get; set; }
         public DateTimeOffset? NextRetryAt { get; set; }
+    }
+
+    public class ClickHouseStatsResponse
+    {
+        public List<ClickHouseTableInfo> Tables { get; set; } = [];
+        public DateTimeOffset? LastSyncUtc { get; set; }
+    }
+
+    public class ClickHouseTableInfo
+    {
+        public string Name { get; set; } = "";
+        public long Rows { get; set; }
+        public long Bytes { get; set; }
+        public int Partitions { get; set; }
+    }
+
+    public class ApiMetricsPerMinute
+    {
+        public DateTime Minute { get; set; }
+        public long Requests { get; set; }
+    }
+
+    public class SlowEndpointInfo
+    {
+        public string Endpoint { get; set; } = "";
+        public double AvgDurationMs { get; set; }
+        public double P95DurationMs { get; set; }
+        public double ErrorRatePercent { get; set; }
     }
 }

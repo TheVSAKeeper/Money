@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Money.Api.BackgroundServices;
 using Money.Api.Dto.Admin;
+using Money.Api.Services.Analytics;
 using Money.Api.Services.Notifications;
 using Money.Business;
 using Money.Business.Interfaces;
@@ -32,6 +33,8 @@ public class AdminController(
     IConnectionMultiplexer redis,
     IEmailQueueService emailQueueService,
     AdminNotificationPublisher adminPublisher,
+    ClickHouseService clickHouseService,
+    ClickHouseSyncService clickHouseSyncService,
     ILogger<AdminController> logger) : ControllerBase
 {
     /// <summary>
@@ -548,7 +551,7 @@ public class AdminController(
     /// Сбросить весь кэш Redis (только для Admin).
     /// </summary>
     [HttpDelete("cache/flush")]
-    [Authorize(Roles = "Admin", AuthenticationSchemes = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme)]
+    [Authorize(AuthenticationSchemes = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -559,5 +562,94 @@ public class AdminController(
         await adminPublisher.PublishCacheFlushedAsync();
         logger.LogWarning("Кэш Redis сброшен пользователем {UserId}", environment.UserId);
         return NoContent();
+    }
+
+    /// <summary>
+    /// Статистика таблиц ClickHouse: строки, размер, партиции.
+    /// </summary>
+    [HttpGet("ClickHouse/Stats")]
+    [ProducesResponseType(typeof(ClickHouseStatsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ClickHouseStatsResponse> GetClickHouseStats()
+    {
+        var tables = await clickHouseService.QueryAsync("""
+                                                        SELECT
+                                                            name,
+                                                            total_rows,
+                                                            total_bytes,
+                                                            (
+                                                                SELECT count()
+                                                                FROM system.parts
+                                                                WHERE active AND database = 'default' AND table = t.name
+                                                            ) AS partition_count
+                                                        FROM system.tables t
+                                                        WHERE name IN ('operations_analytics', 'debts_analytics', 'api_metrics') and total_bytes != 0
+                                                        """,
+            r => new ClickHouseTableInfo
+            {
+                Name = r.GetString(0),
+                Rows = r.IsDBNull(1) ? 0 : (long)(ulong)r.GetValue(1),
+                Bytes = r.IsDBNull(2) ? 0 : (long)(ulong)r.GetValue(2),
+                Partitions = r.IsDBNull(3) ? 0 : (int)(ulong)r.GetValue(3),
+            });
+
+        return new()
+        {
+            Tables = tables,
+            LastSyncUtc = clickHouseSyncService.LastSyncUtc,
+        };
+    }
+
+    /// <summary>
+    /// API запросов в минуту за последние 30 минут (для графика).
+    /// </summary>
+    [HttpGet("ClickHouse/ApiMetrics")]
+    [ProducesResponseType(typeof(List<ApiMetricsPerMinute>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public Task<List<ApiMetricsPerMinute>> GetApiMetricsPerMinute()
+    {
+        return clickHouseService.QueryAsync("""
+                                            SELECT
+                                                toStartOfMinute(timestamp) AS minute,
+                                                count() AS requests
+                                            FROM api_metrics
+                                            WHERE timestamp > now() - INTERVAL 30 MINUTE
+                                            GROUP BY minute
+                                            ORDER BY minute
+                                            """,
+            r => new ApiMetricsPerMinute
+            {
+                Minute = r.GetDateTime(0),
+                Requests = r.IsDBNull(1) ? 0 : (long)(ulong)r.GetValue(1),
+            });
+    }
+
+    /// <summary>
+    /// Top-10 самых медленных endpoint'ов.
+    /// </summary>
+    [HttpGet("ClickHouse/SlowEndpoints")]
+    [ProducesResponseType(typeof(List<SlowEndpointInfo>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public Task<List<SlowEndpointInfo>> GetSlowEndpoints()
+    {
+        return clickHouseService.QueryAsync("""
+                                            SELECT
+                                                endpoint,
+                                                avg(duration_ms),
+                                                quantile(0.95)(duration_ms),
+                                                countIf(status_code >= 400) * 100.0 / count()
+                                            FROM api_metrics
+                                            WHERE timestamp > now() - INTERVAL 24 HOUR
+                                            GROUP BY endpoint
+                                            ORDER BY avg(duration_ms) DESC
+                                            LIMIT 10
+                                            """,
+            r => new SlowEndpointInfo
+            {
+                Endpoint = r.GetString(0),
+                AvgDurationMs = r.GetDouble(1),
+                P95DurationMs = r.GetDouble(2),
+                ErrorRatePercent = r.GetDouble(3),
+            });
     }
 }

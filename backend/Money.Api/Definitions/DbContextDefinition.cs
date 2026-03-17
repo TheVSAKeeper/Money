@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Money.Api.BackgroundServices;
+using Money.Api.Services.Analytics;
 using Money.Business;
 using Money.Data;
 using Money.Data.Sharding;
@@ -32,6 +33,7 @@ public class DbContextDefinition : AppDefinition
             var factory = sp.GetRequiredService<ShardedDbContextFactory>();
             var env = sp.GetRequiredService<RequestEnvironment>();
             var logger = sp.GetRequiredService<ILogger<DbContextDefinition>>();
+            var analyticsInterceptor = sp.GetRequiredService<AnalyticsInterceptor>();
 
             var shardName = env.ShardName
                             ?? throw new InvalidOperationException("ShardName not set. AuthMiddleware must run before resolving ApplicationDbContext.");
@@ -40,7 +42,7 @@ public class DbContextDefinition : AppDefinition
                 env.TryGetUserId(),
                 shardName);
 
-            return factory.Create(shardName);
+            return factory.Create(shardName, optionsBuilder => optionsBuilder.AddInterceptors(analyticsInterceptor));
         });
 
         builder.AddNpgsqlDbContext<RoutingDbContext>("RoutingDb", settings =>

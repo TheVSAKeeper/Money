@@ -9,5 +9,6 @@ public class MiddlewareDefinition : AppDefinition
     public override void ConfigureApplication(WebApplication app)
     {
         app.UseMiddleware<AuthMiddleware>();
+        app.UseMiddleware<ApiMetricsMiddleware>();
     }
 }
