@@ -1,0 +1,43 @@
+cubes:
+  - name: debts
+    sql_table: debts_analytics
+    dimensions:
+      - name: user_id
+        sql: user_id
+        type: number
+      - name: owner_name
+        sql: owner_name
+        type: string
+      - name: debt_type
+        sql: type_id
+        type: number
+      - name: status
+        sql: status_id
+        type: number
+      - name: date
+        sql: date
+        type: time
+    measures:
+      - name: total_debt
+        sql: sum
+        type: sum
+      - name: total_paid
+        sql: pay_sum
+        type: sum
+      - name: count
+        type: count
+      - name: outstanding
+        type: number
+        sql: "SUM({CUBE}.sum) - SUM({CUBE}.pay_sum)"
+      - name: repayment_rate
+        type: number
+        sql: "ROUND(SUM({CUBE}.pay_sum) / NULLIF(SUM({CUBE}.sum), 0) * 100, 2)"
+    pre_aggregations:
+      - name: monthly_by_owner
+        measures: [total_debt, total_paid, count, outstanding]
+        dimensions: [owner_name, debt_type, status]
+        time_dimension: date
+        granularity: month
+        indexes:
+          - name: main
+            columns: [owner_name, debt_type, status]

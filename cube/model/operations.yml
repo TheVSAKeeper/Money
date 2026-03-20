@@ -1,0 +1,58 @@
+cubes:
+  - name: operations
+    sql_table: operations_analytics
+    dimensions:
+      - name: user_id
+        sql: user_id
+        type: number
+      - name: category_name
+        sql: category_name
+        type: string
+      - name: operation_type
+        sql: operation_type
+        type: number
+        description: "1 = расход, 2 = доход"
+      - name: place_name
+        sql: place_name
+        type: string
+      - name: date
+        sql: date
+        type: time
+    measures:
+      - name: total_sum
+        sql: sum
+        type: sum
+      - name: count
+        type: count
+      - name: avg_sum
+        sql: sum
+        type: avg
+      - name: net_balance
+        type: number
+        sql: "SUM(CASE WHEN {CUBE}.operation_type = 2 THEN {CUBE}.sum ELSE -{CUBE}.sum END)"
+        description: "Баланс: доходы (type=2) минус расходы (type=1)"
+    segments:
+      - name: expenses_only
+        sql: "{CUBE}.operation_type = 1"
+      - name: income_only
+        sql: "{CUBE}.operation_type = 2"
+    pre_aggregations:
+      - name: monthly_by_category
+        measures: [total_sum, count, avg_sum]
+        dimensions: [category_name, operation_type]
+        time_dimension: date
+        granularity: month
+        partition_granularity: month
+        refresh_key:
+          every: "1 hour"
+        indexes:
+          - name: main
+            columns: [category_name, operation_type]
+      - name: weekly_trends
+        measures: [total_sum, count, net_balance]
+        dimensions: [user_id]
+        time_dimension: date
+        granularity: week
+        indexes:
+          - name: main
+            columns: [user_id]

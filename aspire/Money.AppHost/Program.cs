@@ -4,6 +4,7 @@ var builder = DistributedApplication.CreateBuilder(args);
 
 var password = builder.AddParameter("postgres-password");
 var chPassword = builder.AddParameter("clickhouse-password");
+var cubeSecret = builder.AddParameter("cube-secret");
 
 var routing = builder.AddPostgres("routing", password: password, port: 21701)
     .WithPgAdmin(c => c.WithHostPort(21700))
@@ -39,6 +40,22 @@ var chui = builder.AddContainer("ch-ui", "caioricciuti/ch-ui", "latest")
     .WithReference(clickhouse)
     .WaitFor(clickhouse);
 
+var cube = builder.AddContainer("cube", "cubejs/cube", "v1.6")
+    .WithEndpoint(4000, 4000, name: "api", scheme: "http")
+    .WithEndpoint(3000, 3000, name: "playground", scheme: "http")
+    .WithEnvironment("CUBEJS_DB_TYPE", "clickhouse")
+    .WithEnvironment("CUBEJS_DB_HOST", chEndpoint.Property(EndpointProperty.Host))
+    .WithEnvironment("CUBEJS_DB_PORT", chEndpoint.Property(EndpointProperty.Port))
+    .WithEnvironment("CUBEJS_DB_PASS", chPassword)
+    .WithEnvironment("CUBEJS_DB_NAME", "clickhousedb")
+    .WithEnvironment("CUBEJS_API_SECRET", cubeSecret)
+    .WithEnvironment("CUBEJS_DEV_MODE", "true")
+    .WithBindMount("../../cube", "/cube/conf")
+    .WaitFor(clickhouse);
+
+var cubeApiEndpoint = cube.GetEndpoint("api");
+var cubeBaseUrl = ReferenceExpression.Create($"http://{cubeApiEndpoint.Property(EndpointProperty.Host)}:{cubeApiEndpoint.Property(EndpointProperty.Port)}");
+
 var api = builder.AddProject<Money_Api>("api")
     .WithReference(routingDb)
     .WaitFor(routingDb)
@@ -51,7 +68,10 @@ var api = builder.AddProject<Money_Api>("api")
     .WithReference(redis)
     .WaitFor(redis)
     .WithReference(clickhousedb)
-    .WaitFor(clickhousedb);
+    .WaitFor(clickhousedb)
+    .WithEnvironment("Cube__BaseUrl", cubeBaseUrl)
+    .WithEnvironment("Cube__ApiSecret", cubeSecret)
+    .WaitFor(cube);
 
 builder.AddProject<Money_Web>("frontend")
     .WithReference(api)

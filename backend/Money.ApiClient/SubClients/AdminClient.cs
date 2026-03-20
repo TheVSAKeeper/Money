@@ -81,6 +81,47 @@ public sealed class AdminClient(MoneyClient apiClient) : ApiClientExecutor(apiCl
         return GetAsync<List<SlowEndpointInfo>>($"{BaseUri}/ClickHouse/SlowEndpoints");
     }
 
+    public Task<ApiClientResponse<CubeResultSet>> GetCubeExpenses(
+        string period = "last 6 months",
+        string granularity = "month")
+    {
+        return GetAsync<CubeResultSet>($"{BaseUri}/Cube/Expenses?period={Uri.EscapeDataString(period)}&granularity={Uri.EscapeDataString(granularity)}");
+    }
+
+    public Task<ApiClientResponse<CubeResultSet>> GetCubeDebts(string period = "last 6 months")
+    {
+        return GetAsync<CubeResultSet>($"{BaseUri}/Cube/Debts?period={Uri.EscapeDataString(period)}");
+    }
+
+    public Task<ApiClientResponse<CubeResultSet>> GetCubeTrends(
+        string granularity = "week",
+        string dateRange = "last 3 months")
+    {
+        return GetAsync<CubeResultSet>($"{BaseUri}/Cube/Trends?granularity={Uri.EscapeDataString(granularity)}&dateRange={Uri.EscapeDataString(dateRange)}");
+    }
+
+    public Task<ApiClientResponse<CubeMeta>> GetCubeMeta()
+    {
+        return GetAsync<CubeMeta>($"{BaseUri}/Cube/Meta");
+    }
+
+    public class CubeResultSet
+    {
+        public List<Dictionary<string, object?>> Data { get; set; } = [];
+        public Dictionary<string, CubeAnnotation>? Annotation { get; set; }
+    }
+
+    public record CubeAnnotation(string Title, string ShortTitle, string Type);
+
+    public class CubeMeta
+    {
+        public List<CubeDef> Cubes { get; set; } = [];
+    }
+
+    public record CubeDef(string Name, List<CubeMemberDef> Measures, List<CubeMemberDef> Dimensions);
+
+    public record CubeMemberDef(string Name, string Title, string ShortTitle, string Type);
+
     public class ShardsMetricsResponse
     {
         public Dictionary<string, ShardMetrics> Shards { get; set; } = [];

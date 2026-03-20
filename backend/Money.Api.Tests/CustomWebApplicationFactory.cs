@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Money.Api.Services.Analytics;
 using Money.Business.Services;
 using StackExchange.Redis;
 
@@ -60,6 +61,17 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProg
             services.AddSingleton<IConfiguration>(configRoot);
             services.AddSingleton(configRoot);
             services.AddSingleton<IMailsService, TestMailsService>();
+
+            const string testCubeSecret = "test-cube-secret-for-integration-tests";
+            var mockCubeHandler = new MockCubeHttpHandler();
+            services.AddSingleton(mockCubeHandler);
+            services.AddSingleton(new CubeSettings(new("http://cube-mock:4000"), testCubeSecret));
+            services.AddHttpClient<CubeApiService>(client =>
+                {
+                    client.BaseAddress = new("http://cube-mock:4000");
+                    client.Timeout = TimeSpan.FromSeconds(10);
+                })
+                .ConfigurePrimaryHttpMessageHandler(_ => mockCubeHandler);
 
             if (RedisConnectionString == null)
             {

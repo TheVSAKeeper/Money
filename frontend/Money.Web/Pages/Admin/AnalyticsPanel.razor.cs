@@ -22,10 +22,33 @@ public sealed partial class AnalyticsPanel(MoneyClient client) : IDisposable
         },
     };
 
+    private readonly ChartConfig _trendsChartConfig = new()
+    {
+        Type = "line",
+        Options = new()
+        {
+            Responsive = true,
+            Plugins = new()
+            {
+                Legend = new()
+                {
+                    Display = true,
+                    Position = "top",
+                },
+            },
+        },
+    };
+
     private ClickHouseStatsResponse? _stats;
     private List<ApiMetricsPerMinute>? _metricsPerMinute;
     private List<SlowEndpointInfo>? _slowEndpoints;
     private Chart? _chart;
+
+    private CubeResultSet? _cubeExpenses;
+    private CubeResultSet? _cubeDebts;
+    private CubeResultSet? _cubeTrends;
+    private Chart? _trendsChart;
+    private int _olapTab;
 
     private Timer? _timer;
 
@@ -63,9 +86,19 @@ public sealed partial class AnalyticsPanel(MoneyClient client) : IDisposable
         return $"{dblSByte:0.##} {suffix[i]}";
     }
 
+    private static string GetValue(Dictionary<string, object?> row, string key)
+    {
+        return row.TryGetValue(key, out var val) ? val?.ToString() ?? "" : "";
+    }
+
     private async Task LoadAllAsync()
     {
-        await Task.WhenAll(LoadStatsAsync(), LoadMetricsAsync(), LoadSlowEndpointsAsync());
+        await Task.WhenAll(LoadStatsAsync(),
+            LoadMetricsAsync(),
+            LoadSlowEndpointsAsync(),
+            LoadCubeExpensesAsync(),
+            LoadCubeDebtsAsync(),
+            LoadCubeTrendsAsync());
     }
 
     private async Task LoadStatsAsync()
@@ -135,6 +168,92 @@ public sealed partial class AnalyticsPanel(MoneyClient client) : IDisposable
         catch (Exception ex)
         {
             client.Log($"Ошибка загрузки slow endpoints: {ex.Message}");
+        }
+    }
+
+    private async Task LoadCubeExpensesAsync()
+    {
+        try
+        {
+            var result = await client.Admin.GetCubeExpenses();
+
+            if (result is { IsSuccessStatusCode: true, Content: not null })
+            {
+                _cubeExpenses = result.Content;
+            }
+        }
+        catch (Exception ex)
+        {
+            client.Log($"Ошибка загрузки Cube расходов: {ex.Message}");
+        }
+    }
+
+    private async Task LoadCubeDebtsAsync()
+    {
+        try
+        {
+            var result = await client.Admin.GetCubeDebts();
+
+            if (result is { IsSuccessStatusCode: true, Content: not null })
+            {
+                _cubeDebts = result.Content;
+            }
+        }
+        catch (Exception ex)
+        {
+            client.Log($"Ошибка загрузки Cube долгов: {ex.Message}");
+        }
+    }
+
+    private async Task LoadCubeTrendsAsync()
+    {
+        try
+        {
+            var result = await client.Admin.GetCubeTrends();
+
+            if (!result.IsSuccessStatusCode || result.Content == null)
+            {
+                return;
+            }
+
+            _cubeTrends = result.Content;
+
+            var labels = _cubeTrends.Data
+                .Select(row => GetValue(row, "operations.date.week") is { Length: > 0 } v ? v : GetValue(row, "operations.date"))
+                .ToList();
+
+            var expenseRows = _cubeTrends.Data
+                .Where(r => GetValue(r, "operations.operation_type") == "1")
+                .ToList();
+
+            var incomeRows = _cubeTrends.Data
+                .Where(r => GetValue(r, "operations.operation_type") == "2")
+                .ToList();
+
+            _trendsChartConfig.Data.Labels = labels.Distinct().ToList();
+            _trendsChartConfig.Data.Datasets.Clear();
+            _trendsChartConfig.Data.Datasets.Add(new()
+            {
+                Label = "Расходы",
+                BackgroundColor = ChartColors.GetColor(0),
+                Data = expenseRows.Select(r => decimal.TryParse(GetValue(r, "operations.total_sum"), out var v) ? (decimal?)v : null).ToList(),
+            });
+
+            _trendsChartConfig.Data.Datasets.Add(new()
+            {
+                Label = "Доходы",
+                BackgroundColor = ChartColors.GetColor(1),
+                Data = incomeRows.Select(r => decimal.TryParse(GetValue(r, "operations.total_sum"), out var v) ? (decimal?)v : null).ToList(),
+            });
+
+            if (_trendsChart != null)
+            {
+                await _trendsChart.UpdateAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            client.Log($"Ошибка загрузки Cube трендов: {ex.Message}");
         }
     }
 }

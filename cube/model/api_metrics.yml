@@ -1,0 +1,33 @@
+cubes:
+  - name: api_metrics
+    sql_table: api_metrics
+    public: true
+    dimensions:
+      - name: endpoint
+        sql: endpoint
+        type: string
+      - name: method
+        sql: method
+        type: string
+      - name: status_code
+        sql: status_code
+        type: number
+      - name: timestamp
+        sql: timestamp
+        type: time
+    measures:
+      - name: count
+        type: count
+      - name: avg_duration
+        sql: duration_ms
+        type: avg
+      - name: p95_duration
+        type: number
+        sql: "quantile(0.95)({CUBE}.duration_ms)"
+      - name: error_count
+        type: count
+        filters:
+          - sql: "{CUBE}.status_code >= 400"
+      - name: error_rate
+        type: number
+        sql: "countIf({CUBE}.status_code >= 400) * 100.0 / count()"
