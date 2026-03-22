@@ -10,10 +10,22 @@ public class ClickHouseService(ClickHouseDataSource dataSource)
 {
     public async Task ExecuteAsync(string sql, CancellationToken ct = default)
     {
-        await using var connection = await dataSource.OpenConnectionAsync(ct);
-        await using var cmd = connection.CreateCommand();
-        cmd.CommandText = sql;
-        await cmd.ExecuteNonQueryAsync(ct);
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            try
+            {
+                await using var connection = await dataSource.OpenConnectionAsync(ct);
+                await using var cmd = connection.CreateCommand();
+                cmd.CommandText = sql;
+                await cmd.ExecuteNonQueryAsync(ct);
+                return;
+            }
+            catch (HttpRequestException ex) when (attempt == 0 && ex.InnerException is HttpIOException)
+            {
+                // ClickHouse closed the keep-alive connection before the request arrived.
+                // Retry once with a fresh connection.
+            }
+        }
     }
 
     public async Task<List<T>> QueryScalarAsync<T>(string sql, CancellationToken ct = default)

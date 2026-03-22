@@ -95,6 +95,21 @@ public class CubeApiServiceTests
         return new(httpClient, _settings, NullLogger<CubeApiService>.Instance);
     }
 
+    [Test]
+    public void QueryAsync_On400Error_IncludesResponseBodyInException()
+    {
+        const string ErrorBody = "{\"error\":\"Unknown member: bogus.field\"}";
+        var handler = new BadRequestHandler(ErrorBody);
+        var service = CreateService(handler);
+
+        var ex = Assert.ThrowsAsync<HttpRequestException>(() => service.QueryAsync(new()
+        {
+            Measures = ["operations.total_sum"],
+        }, 1));
+
+        Assert.That(ex!.Message, Does.Contain("bogus.field"));
+    }
+
     private sealed class AlwaysOkHandler : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
@@ -128,6 +143,17 @@ public class CubeApiServiceTests
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(ok, Encoding.UTF8, "application/json"),
+            });
+        }
+    }
+
+    private sealed class BadRequestHandler(string body) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadRequest)
+            {
+                Content = new StringContent(body, Encoding.UTF8, "application/json"),
             });
         }
     }

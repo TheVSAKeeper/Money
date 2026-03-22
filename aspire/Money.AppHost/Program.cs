@@ -50,7 +50,9 @@ var cube = builder.AddContainer("cube", "cubejs/cube", "v1.6")
     .WithEnvironment("CUBEJS_DB_NAME", "clickhousedb")
     .WithEnvironment("CUBEJS_API_SECRET", cubeSecret)
     .WithEnvironment("CUBEJS_DEV_MODE", "true")
+    .WithEnvironment("CUBESTORE_DATA_DIR", "/var/cubestore")
     .WithBindMount("../../cube", "/cube/conf")
+    .WithVolume("cubestore-data", "/var/cubestore")
     .WaitFor(clickhouse);
 
 var cubeApiEndpoint = cube.GetEndpoint("api");

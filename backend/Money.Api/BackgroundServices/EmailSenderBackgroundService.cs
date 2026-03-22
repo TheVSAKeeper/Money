@@ -18,7 +18,7 @@ public class EmailSenderBackgroundService(
 
     public override void Dispose()
     {
-        _timer.Dispose();
+        _timer?.Dispose();
         _semaphore.Dispose();
         base.Dispose();
         GC.SuppressFinalize(this);

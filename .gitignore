@@ -401,3 +401,4 @@ FodyWeavers.xsd
 
 # MoneyProject
 backend/Money.Api/appsettings.Development.json
+cube/.*

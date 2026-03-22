@@ -18,6 +18,11 @@ public class TestUser : TestObject
     public int Id { get; private set; }
 
     /// <summary>
+    /// Имя шарда.
+    /// </summary>
+    public string ShardName { get; private set; } = string.Empty;
+
+    /// <summary>
     /// Логин.
     /// </summary>
     public string UserName { get; private set; }
@@ -31,6 +36,28 @@ public class TestUser : TestObject
     /// Пароль.
     /// </summary>
     public string Password { get; private set; }
+
+    public override void LocalSave()
+    {
+        if (IsNew)
+        {
+            Environment.ApiClient.RegisterAsync(UserName, Email, Password).Wait();
+
+            using var routingCtx = Environment.CreateRoutingDbContext();
+            var dbUser = routingCtx.Users
+                .Single(x => x.UserName == UserName);
+
+            var shardName = Environment.ShardRouter.ResolveShard(dbUser.Id);
+            Environment.SetShard(shardName);
+
+            var domainUser = Environment.Context.DomainUsers
+                .Single(x => x.AuthUserId == dbUser.Id);
+
+            Id = domainUser.Id;
+            ShardName = shardName;
+            IsNew = false;
+        }
+    }
 
     public TestUser SetPassword(string value)
     {
@@ -97,26 +124,5 @@ public class TestUser : TestObject
         var obj = new TestDebt(this);
         obj.Attach(Environment);
         return obj;
-    }
-
-    public override void LocalSave()
-    {
-        if (IsNew)
-        {
-            Environment.ApiClient.RegisterAsync(UserName, Email, Password).Wait();
-
-            using var routingCtx = Environment.CreateRoutingDbContext();
-            var dbUser = routingCtx.Users
-                .Single(x => x.UserName == UserName);
-
-            var shardName = Environment.ShardRouter.ResolveShard(dbUser.Id);
-            Environment.SetShard(shardName);
-
-            var domainUser = Environment.Context.DomainUsers
-                .Single(x => x.AuthUserId == dbUser.Id);
-
-            Id = domainUser.Id;
-            IsNew = false;
-        }
     }
 }

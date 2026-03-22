@@ -175,7 +175,12 @@ public class CubeApiService(HttpClient httpClient, CubeSettings settings, ILogge
             request.Content = JsonContent.Create(requestBody, options: JsonOptions);
 
             var response = await httpClient.SendAsync(request, ct);
-            response.EnsureSuccessStatusCode();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorBody = await response.Content.ReadAsStringAsync(ct);
+                throw new HttpRequestException($"Cube.js load failed with {(int)response.StatusCode} {response.ReasonPhrase}: {errorBody}");
+            }
 
             var body = await response.Content.ReadFromJsonAsync<CubeLoadResponse>(JsonOptions, ct);
 

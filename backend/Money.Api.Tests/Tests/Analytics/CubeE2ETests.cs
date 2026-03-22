@@ -29,6 +29,7 @@ public class CubeE2ETests
             .Build();
 
         await _clickhouseContainer.StartAsync();
+        await InitializeClickHouseTablesAsync(chPassword);
 
         var cubeModelPath = ResolveCubeModelPath();
 
@@ -41,7 +42,7 @@ public class CubeE2ETests
             .WithEnvironment("CUBEJS_DB_TYPE", "clickhouse")
             .WithEnvironment("CUBEJS_DB_HOST", "clickhouse")
             .WithEnvironment("CUBEJS_DB_PORT", "8123")
-            .WithEnvironment("CUBEJS_DB_USER", "default")
+            .WithEnvironment("CUBEJS_DB_USER", "clickhouse")
             .WithEnvironment("CUBEJS_DB_PASS", chPassword)
             .WithEnvironment("CUBEJS_API_SECRET", "e2e-test-secret-long-enough-for-hs256")
             .WithEnvironment("CUBEJS_DEV_MODE", "true")
@@ -130,6 +131,69 @@ public class CubeE2ETests
         {
             Assert.That(result1, Is.Not.Null);
             Assert.That(result2, Is.Not.Null);
+        }
+    }
+
+    // TODO: Костыль
+    private async Task InitializeClickHouseTablesAsync(string password)
+    {
+        var port = _clickhouseContainer.GetMappedPublicPort(8123);
+        using var http = new HttpClient();
+
+        string[] ddl =
+        [
+            """
+            CREATE TABLE IF NOT EXISTS operations_analytics (
+                user_id      Int32,
+                operation_id Int32,
+                category_id  Int32,
+                category_name String,
+                operation_type Int32,
+                sum          Decimal(18,2),
+                date         Date,
+                place_name   Nullable(String),
+                comment      Nullable(String),
+                created_at   DateTime DEFAULT now()
+            ) ENGINE = MergeTree()
+            ORDER BY (user_id, date, category_id)
+            PARTITION BY toYYYYMM(date)
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS debts_analytics (
+                user_id   Int32,
+                debt_id   Int32,
+                owner_name String,
+                type_id   Int32,
+                sum       Decimal(18,2),
+                pay_sum   Decimal(18,2),
+                status_id Int32,
+                date      Date,
+                created_at DateTime DEFAULT now()
+            ) ENGINE = ReplacingMergeTree(created_at)
+            ORDER BY (user_id, debt_id)
+            PARTITION BY toYYYYMM(date)
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS api_metrics (
+                timestamp   DateTime,
+                user_id     Nullable(Int32),
+                endpoint    String,
+                method      String,
+                status_code Int32,
+                duration_ms Float64
+            ) ENGINE = MergeTree()
+            ORDER BY (endpoint, timestamp)
+            PARTITION BY toYYYYMMDD(timestamp)
+            TTL timestamp + INTERVAL 90 DAY
+            """,
+        ];
+
+        foreach (var sql in ddl)
+        {
+            var response = await http.PostAsync($"http://localhost:{port}/?user=clickhouse&password={password}",
+                new StringContent(sql));
+
+            response.EnsureSuccessStatusCode();
         }
     }
 
