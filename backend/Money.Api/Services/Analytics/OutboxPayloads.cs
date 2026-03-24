@@ -9,7 +9,8 @@ internal record OperationPayload(
     decimal Sum,
     DateOnly Date,
     string? PlaceName,
-    string? Comment);
+    string? Comment,
+    string Action = "modified");
 
 internal record DebtPayload(
     int UserId,
@@ -19,4 +20,15 @@ internal record DebtPayload(
     decimal Sum,
     decimal PaySum,
     int StatusId,
-    DateOnly Date);
+    DateOnly Date,
+    bool IsDeleted = false,
+    string Action = "modified");
+
+internal record CategoryPayload(
+    int UserId,
+    int CategoryId,
+    string Name,
+    int TypeId,
+    int? ParentId,
+    bool IsDeleted = false,
+    string Action = "modified");

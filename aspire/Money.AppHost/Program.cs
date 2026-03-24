@@ -5,6 +5,8 @@ var builder = DistributedApplication.CreateBuilder(args);
 var password = builder.AddParameter("postgres-password");
 var chPassword = builder.AddParameter("clickhouse-password");
 var cubeSecret = builder.AddParameter("cube-secret");
+var neo4jUser = builder.AddParameter("neo4j-user");
+var neo4jPassword = builder.AddParameter("neo4j-password");
 
 var routing = builder.AddPostgres("routing", password: password, port: 21701)
     .WithPgAdmin(c => c.WithHostPort(21700))
@@ -25,6 +27,12 @@ var redis = builder.AddRedis("redis", 21705)
     .WithRedisCommander(c => c.WithHostPort(port: 21706))
     .WithDataVolume();
 
+var neo4j = builder.AddContainer("neo4j", "neo4j", "2026.02.3")
+    .WithEndpoint(21710, 7474, name: "browser", scheme: "http")
+    .WithEndpoint(7687, 7687, name: "bolt", isProxied: false)
+    .WithEnvironment("NEO4J_AUTH", ReferenceExpression.Create($"{neo4jUser}/{neo4jPassword}"))
+    .WithVolume("neo4j-data", "/data");
+
 var clickhouse = builder.AddClickHouse("clickhouse", password: chPassword, port: 21707).WithDataVolume();
 
 var clickhousedb = clickhouse.AddDatabase("clickhousedb");
@@ -41,8 +49,8 @@ var chui = builder.AddContainer("ch-ui", "caioricciuti/ch-ui", "latest")
     .WaitFor(clickhouse);
 
 var cube = builder.AddContainer("cube", "cubejs/cube", "v1.6")
-    .WithEndpoint(4000, 4000, name: "api", scheme: "http")
-    .WithEndpoint(3000, 3000, name: "playground", scheme: "http")
+    .WithEndpoint(21712, 4000, name: "api", scheme: "http")
+    .WithEndpoint(21713, 3000, name: "playground", scheme: "http")
     .WithEnvironment("CUBEJS_DB_TYPE", "clickhouse")
     .WithEnvironment("CUBEJS_DB_HOST", chEndpoint.Property(EndpointProperty.Host))
     .WithEnvironment("CUBEJS_DB_PORT", chEndpoint.Property(EndpointProperty.Port))
@@ -71,6 +79,10 @@ var api = builder.AddProject<Money_Api>("api")
     .WaitFor(redis)
     .WithReference(clickhousedb)
     .WaitFor(clickhousedb)
+    .WaitFor(neo4j)
+    .WithEnvironment("Neo4j__BoltUri", ReferenceExpression.Create($"bolt://{neo4j.GetEndpoint("bolt").Property(EndpointProperty.Host)}:{neo4j.GetEndpoint("bolt").Property(EndpointProperty.Port)}"))
+    .WithEnvironment("Neo4j__User", neo4jUser)
+    .WithEnvironment("Neo4j__Password", neo4jPassword)
     .WithEnvironment("Cube__BaseUrl", cubeBaseUrl)
     .WithEnvironment("Cube__ApiSecret", cubeSecret)
     .WaitFor(cube);

@@ -128,4 +128,28 @@
             </MudCardContent>
         </MudCard>
     </MudItem>
+    <MudItem xs="12"
+             sm="6"
+             md="4"
+             Class="d-flex">
+        <MudCard Class="cursor-pointer flex-grow-1"
+                 @onclick='() => Nav.NavigateTo("admin/graph")'
+                 Elevation="2">
+            <MudCardContent>
+                <MudStack Row
+                          AlignItems="AlignItems.Center"
+                          Spacing="3">
+                    <MudIcon Icon="@Icons.Material.Rounded.Hub"
+                             Color="Color.Tertiary"
+                             Size="Size.Large" />
+                    <div>
+                        <MudText Typo="Typo.h6">Граф</MudText>
+                        <MudText Typo="Typo.body2"
+                                 Style="opacity: 0.7">Neo4j: долги и категории
+                        </MudText>
+                    </div>
+                </MudStack>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
 </MudGrid>

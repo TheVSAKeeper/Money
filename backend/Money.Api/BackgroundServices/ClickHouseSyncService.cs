@@ -10,21 +10,33 @@ namespace Money.Api.BackgroundServices;
 public sealed class ClickHouseSyncService(
     ClickHouseService clickHouse,
     ShardedDbContextFactory shardFactory,
+    OutboxCursorService cursorService,
     IOptions<ClickHouseSettings> settings,
     ILogger<ClickHouseSyncService> logger) : BackgroundService
 {
+    public const string ConsumerName = "clickhouse";
     private const int BatchSize = 1000;
+    private readonly SemaphoreSlim _syncLock = new(1, 1);
 
     public DateTimeOffset? LastSyncUtc { get; private set; }
 
     public async Task RunSyncAsync(CancellationToken ct = default)
     {
-        foreach (var shardName in shardFactory.ShardNames)
-        {
-            await SyncShardAsync(shardName, ct);
-        }
+        await _syncLock.WaitAsync(ct);
 
-        LastSyncUtc = DateTimeOffset.UtcNow;
+        try
+        {
+            foreach (var shardName in shardFactory.ShardNames)
+            {
+                await SyncShardAsync(shardName, ct);
+            }
+
+            LastSyncUtc = DateTimeOffset.UtcNow;
+        }
+        finally
+        {
+            _syncLock.Release();
+        }
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -47,17 +59,20 @@ public sealed class ClickHouseSyncService(
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "ClickHouse sync failed — outbox events remain in PostgreSQL for next iteration");
+            logger.LogWarning(ex, "ClickHouse sync failed — events remain in PostgreSQL for next iteration");
         }
     }
 
     private async Task SyncShardAsync(string shardName, CancellationToken ct)
     {
+        var cursor = await cursorService.GetCursorAsync(ConsumerName, shardName);
+
         await using var db = shardFactory.Create(shardName);
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
 
         var events = await db.OutboxEvents
-            .FromSqlRaw($"SELECT * FROM outbox_events ORDER BY id LIMIT {BatchSize} FOR UPDATE SKIP LOCKED")
+            .Where(e => e.Id > cursor)
+            .OrderBy(e => e.Id)
+            .Take(BatchSize)
             .ToListAsync(ct);
 
         if (events.Count == 0)
@@ -65,7 +80,8 @@ public sealed class ClickHouseSyncService(
             return;
         }
 
-        logger.LogDebug("Shard {Shard}: syncing {Count} outbox events to ClickHouse", shardName, events.Count);
+        logger.LogDebug("Shard {Shard}: syncing {Count} outbox events to ClickHouse (cursor: {Cursor})",
+            shardName, events.Count, cursor);
 
         var opEvents = events.Where(e => e.EventType == OutboxEvent.OperationType).ToList();
         var debtEvents = events.Where(e => e.EventType == OutboxEvent.DebtType).ToList();
@@ -102,8 +118,7 @@ public sealed class ClickHouseSyncService(
                 ct);
         }
 
-        db.OutboxEvents.RemoveRange(events);
-        await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
+        var lastId = events.Max(e => e.Id);
+        await cursorService.SetCursorAsync(ConsumerName, shardName, lastId);
     }
 }

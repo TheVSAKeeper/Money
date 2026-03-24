@@ -22,5 +22,8 @@ public class BackgroundServicesDefinition : AppDefinition
 
         builder.Services.AddSingleton<ClickHouseMetricsService>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<ClickHouseMetricsService>());
+
+        builder.Services.AddSingleton<ClickHouseReconciliationService>();
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<ClickHouseReconciliationService>());
     }
 }

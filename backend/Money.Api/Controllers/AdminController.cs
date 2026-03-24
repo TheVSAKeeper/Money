@@ -9,6 +9,7 @@ using Money.Api.Services.Notifications;
 using Money.Business;
 using Money.Business.Interfaces;
 using Money.Data;
+using Money.Data.Graph;
 using Money.Data.Sharding;
 using OpenIddict.Validation.AspNetCore;
 using StackExchange.Redis;
@@ -651,5 +652,33 @@ public class AdminController(
                 P95DurationMs = r.GetDouble(2),
                 ErrorRatePercent = r.GetDouble(3),
             });
+    }
+
+    /// <summary>
+    /// Получить граф долговых отношений из Neo4j.
+    /// </summary>
+    [HttpGet("neo4j/debt-graph")]
+    [ProducesResponseType(typeof(GraphDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<GraphDto> GetDebtGraph(
+        [FromServices] IDebtGraphService debtGraph,
+        [FromQuery] int limit = 200)
+    {
+        limit = Math.Clamp(limit, 1, 1000);
+        return await debtGraph.GetDebtNetworkAsync($"{environment.ShardName}_{environment.UserId}", limit);
+    }
+
+    /// <summary>
+    /// Получить дерево категорий из Neo4j.
+    /// </summary>
+    [HttpGet("neo4j/categories")]
+    [ProducesResponseType(typeof(GraphDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<GraphDto> GetCategoryTree(
+        [FromServices] ICategoryGraphService categoryGraph,
+        [FromQuery] int limit = 500)
+    {
+        limit = Math.Clamp(limit, 1, 2000);
+        return await categoryGraph.GetCategoryTreeAsync($"{environment.ShardName}_{environment.UserId}", limit);
     }
 }

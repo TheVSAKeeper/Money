@@ -17,6 +17,7 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProg
     public string? BurundukDb { get; set; }
     public string? RedisConnectionString { get; set; }
     public string? ClickHouseConnectionString { get; set; }
+    public string? Neo4jBoltUri { get; set; }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -51,6 +52,15 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProg
             builderConfig.AddInMemoryCollection([
                 new("ConnectionStrings:clickhousedb", ClickHouseConnectionString),
                 new("ClickHouse:SyncIntervalSeconds", "0.1"),
+            ]);
+        }
+
+        if (Neo4jBoltUri != null)
+        {
+            builderConfig.AddInMemoryCollection([
+                new("Neo4j:BoltUri", Neo4jBoltUri),
+                new("Neo4j:User", "neo4j"),
+                new("Neo4j:Password", ""),
             ]);
         }
 

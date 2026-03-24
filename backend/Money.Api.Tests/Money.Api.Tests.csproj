@@ -35,6 +35,7 @@
     <PackageReference Include="NUnit3TestAdapter" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="Testcontainers.Redis" />
+    <PackageReference Include="Testcontainers.Neo4j" />
     <PackageReference Include="Testcontainers.ClickHouse" />
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
   </ItemGroup>

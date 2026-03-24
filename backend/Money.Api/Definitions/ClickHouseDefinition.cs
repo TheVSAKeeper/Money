@@ -14,6 +14,7 @@ public class ClickHouseDefinition : AppDefinition
         builder.Services.AddSingleton<ClickHouseInitializer>();
         builder.Services.AddSingleton<ApiMetricsQueue>();
         builder.Services.AddSingleton<AnalyticsInterceptor>();
+        builder.Services.AddSingleton<OutboxCursorService>();
     }
 
     public override void ConfigureApplication(WebApplication app)

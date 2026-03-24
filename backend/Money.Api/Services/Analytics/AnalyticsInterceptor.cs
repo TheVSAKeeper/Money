@@ -24,16 +24,18 @@ public class AnalyticsInterceptor : SaveChangesInterceptor
         }
 
         var operations = db.ChangeTracker.Entries<DataOperation>()
-            .Where(e => e.State is EntityState.Added or EntityState.Modified)
-            .Select(e => e.Entity)
+            .Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
             .ToList();
 
         var debts = db.ChangeTracker.Entries<DataDebt>()
-            .Where(e => e.State is EntityState.Added or EntityState.Modified)
-            .Select(e => e.Entity)
+            .Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
             .ToList();
 
-        if (operations.Count == 0 && debts.Count == 0)
+        var categoryEntries = db.ChangeTracker.Entries<DataCategory>()
+            .Where(e => e.State is EntityState.Added or EntityState.Modified)
+            .ToList();
+
+        if (operations.Count == 0 && debts.Count == 0 && categoryEntries.Count == 0)
         {
             return new(result);
         }
@@ -47,8 +49,16 @@ public class AnalyticsInterceptor : SaveChangesInterceptor
         var owners = db.ChangeTracker.Entries<DataDebtOwner>()
             .ToDictionary(e => (e.Entity.UserId, e.Entity.Id), e => e.Entity);
 
-        foreach (var op in operations)
+        foreach (var entry in operations)
         {
+            var op = entry.Entity;
+            var action = entry.State switch
+            {
+                EntityState.Added => "added",
+                EntityState.Deleted => "deleted",
+                _ => "modified",
+            };
+
             categories.TryGetValue((op.UserId, op.CategoryId), out var cat);
             cat ??= op.Category;
 
@@ -68,7 +78,8 @@ public class AnalyticsInterceptor : SaveChangesInterceptor
                 op.Sum,
                 DateOnly.FromDateTime(op.Date),
                 placeName,
-                op.Comment);
+                op.Comment,
+                action);
 
             db.OutboxEvents.Add(new()
             {
@@ -78,8 +89,16 @@ public class AnalyticsInterceptor : SaveChangesInterceptor
             });
         }
 
-        foreach (var debt in debts)
+        foreach (var entry in debts)
         {
+            var debt = entry.Entity;
+            var action = entry.State switch
+            {
+                EntityState.Added => "added",
+                EntityState.Deleted => "deleted",
+                _ => "modified",
+            };
+
             owners.TryGetValue((debt.UserId, debt.OwnerId), out var owner);
             owner ??= debt.Owner;
 
@@ -90,11 +109,34 @@ public class AnalyticsInterceptor : SaveChangesInterceptor
                 debt.Sum,
                 debt.PaySum,
                 debt.StatusId,
-                DateOnly.FromDateTime(debt.Date));
+                DateOnly.FromDateTime(debt.Date),
+                debt.IsDeleted || entry.State == EntityState.Deleted,
+                action);
 
             db.OutboxEvents.Add(new()
             {
                 EventType = OutboxEvent.DebtType,
+                Payload = JsonSerializer.Serialize(payload),
+                CreatedAt = DateTime.UtcNow,
+            });
+        }
+
+        foreach (var entry in categoryEntries)
+        {
+            var cat = entry.Entity;
+            var action = entry.State == EntityState.Added ? "added" : "modified";
+
+            var payload = new CategoryPayload(cat.UserId,
+                cat.Id,
+                cat.Name,
+                cat.TypeId,
+                cat.ParentId,
+                cat.IsDeleted,
+                action);
+
+            db.OutboxEvents.Add(new()
+            {
+                EventType = OutboxEvent.CategoryType,
                 Payload = JsonSerializer.Serialize(payload),
                 CreatedAt = DateTime.UtcNow,
             });

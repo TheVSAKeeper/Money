@@ -1,0 +1,121 @@
+@page "/admin/graph"
+@using Money.ApiClient
+@attribute [Authorize]
+
+@inject MoneyClient Client
+
+<PageTitle>Граф Neo4j</PageTitle>
+
+<MudText Typo="Typo.h5"
+         GutterBottom>Граф Neo4j
+</MudText>
+
+<MudButtonGroup OverrideStyles="false"
+                Class="mb-4">
+    <MudButton Variant="@(_mode == GraphMode.Debts ? Variant.Filled : Variant.Outlined)"
+               Color="Color.Primary"
+               OnClick="() => SwitchMode(GraphMode.Debts)">
+        Граф долгов
+    </MudButton>
+    <MudButton Variant="@(_mode == GraphMode.Categories ? Variant.Filled : Variant.Outlined)"
+               Color="Color.Primary"
+               OnClick="() => SwitchMode(GraphMode.Categories)">
+        Дерево категорий
+    </MudButton>
+</MudButtonGroup>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (_error != null)
+{
+    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+}
+else if (_graph != null)
+{
+    <MudPaper Class="pa-4 mb-4"
+              Elevation="2">
+        <MudGrid>
+            <MudItem xs="6">
+                <MudText Typo="Typo.subtitle1">Узлы: @_graph.Nodes.Count</MudText>
+            </MudItem>
+            <MudItem xs="6">
+                <MudText Typo="Typo.subtitle1">Связи: @_graph.Edges.Count</MudText>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    <MudPaper Class="pa-4"
+              Elevation="2">
+        <MudText Typo="Typo.h6"
+                 GutterBottom>Узлы
+        </MudText>
+        <MudSimpleTable Dense
+                        Hover
+                        Striped>
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>Label</th>
+                <th>Properties</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var node in _graph.Nodes.Take(_displayLimit))
+            {
+                <tr>
+                    <td>@node.Id</td>
+                    <td>
+                        <MudChip T="string"
+                                 Size="Size.Small">@node.Label</MudChip>
+                    </td>
+                    <td>@FormatProperties(node.Properties)</td>
+                </tr>
+            }
+            </tbody>
+        </MudSimpleTable>
+
+        <MudText Typo="Typo.h6"
+                 GutterBottom
+                 Class="mt-4">Связи
+        </MudText>
+        <MudSimpleTable Dense
+                        Hover
+                        Striped>
+            <thead>
+            <tr>
+                <th>From</th>
+                <th>To</th>
+                <th>Type</th>
+                <th>Properties</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var edge in _graph.Edges.Take(_displayLimit))
+            {
+                <tr>
+                    <td>@edge.From</td>
+                    <td>@edge.To</td>
+                    <td>
+                        <MudChip T="string"
+                                 Size="Size.Small"
+                                 Color="Color.Info">@edge.Type</MudChip>
+                    </td>
+                    <td>@FormatProperties(edge.Properties)</td>
+                </tr>
+            }
+            </tbody>
+        </MudSimpleTable>
+
+        @if (_graph.Nodes.Count > _displayLimit || _graph.Edges.Count > _displayLimit)
+        {
+            <MudButton Class="mt-2"
+                       Variant="Variant.Text"
+                       Color="Color.Primary"
+                       OnClick="LoadMore">
+                Загрузить ещё
+            </MudButton>
+        }
+    </MudPaper>
+}

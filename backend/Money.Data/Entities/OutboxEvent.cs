@@ -4,6 +4,7 @@ public class OutboxEvent
 {
     public const string OperationType = "operation";
     public const string DebtType = "debt";
+    public const string CategoryType = "category";
 
     public long Id { get; set; }
     public string EventType { get; set; } = "";

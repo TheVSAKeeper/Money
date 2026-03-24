@@ -105,6 +105,16 @@ public sealed class AdminClient(MoneyClient apiClient) : ApiClientExecutor(apiCl
         return GetAsync<CubeMeta>($"{BaseUri}/Cube/Meta");
     }
 
+    public Task<ApiClientResponse<GraphResponse>> GetDebtGraph(int limit = 200)
+    {
+        return GetAsync<GraphResponse>($"{BaseUri}/neo4j/debt-graph?limit={limit}");
+    }
+
+    public Task<ApiClientResponse<GraphResponse>> GetCategoryTree(int limit = 500)
+    {
+        return GetAsync<GraphResponse>($"{BaseUri}/neo4j/categories?limit={limit}");
+    }
+
     public class CubeResultSet
     {
         public List<Dictionary<string, object?>> Data { get; set; } = [];
@@ -121,6 +131,27 @@ public sealed class AdminClient(MoneyClient apiClient) : ApiClientExecutor(apiCl
     public record CubeDef(string Name, List<CubeMemberDef> Measures, List<CubeMemberDef> Dimensions);
 
     public record CubeMemberDef(string Name, string Title, string ShortTitle, string Type);
+
+    public class GraphResponse
+    {
+        public List<GraphNode> Nodes { get; set; } = [];
+        public List<GraphEdge> Edges { get; set; } = [];
+    }
+
+    public class GraphNode
+    {
+        public string Id { get; set; } = "";
+        public string Label { get; set; } = "";
+        public Dictionary<string, object> Properties { get; set; } = [];
+    }
+
+    public class GraphEdge
+    {
+        public string From { get; set; } = "";
+        public string To { get; set; } = "";
+        public string Type { get; set; } = "";
+        public Dictionary<string, object> Properties { get; set; } = [];
+    }
 
     public class ShardsMetricsResponse
     {

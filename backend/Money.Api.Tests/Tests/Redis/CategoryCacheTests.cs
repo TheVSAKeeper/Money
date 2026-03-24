@@ -27,8 +27,21 @@ public class CategoryCacheTests
     }
 
     [TearDown]
-    public void TearDown()
+    public async Task TearDown()
     {
+        if (_user.Id == 0)
+        {
+            return;
+        }
+
+        var db = _redis.GetDatabase();
+        var server = _redis.GetServer(_redis.GetEndPoints()[0]);
+        var keys = server.Keys(pattern: $"cache:categories:*:{_user.Id}").ToArray();
+
+        if (keys.Length > 0)
+        {
+            await db.KeyDeleteAsync(keys);
+        }
     }
 
     [Test]

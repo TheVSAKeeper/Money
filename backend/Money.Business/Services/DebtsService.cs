@@ -1,4 +1,4 @@
-﻿using Money.Business.Interfaces;
+using Money.Business.Interfaces;
 using Money.Data.Extensions;
 
 namespace Money.Business.Services;
