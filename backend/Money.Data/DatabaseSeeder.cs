@@ -285,247 +285,133 @@ public static class DatabaseSeeder
         return categories;
     }
 
-    public static (List<Operation> operations, List<Place> places) SeedOperations(int userId, List<Category> categories, int startIndex = 0, int placeStartIndex = 0)
+    public static (List<Operation> operations, List<Place> places) SeedOperations(
+        int userId, List<Category> categories, DateTime now, int startIndex = 0, int placeStartIndex = 0)
     {
         var places = SeedPlaces(userId, placeStartIndex);
+        var allCategories = GetAllCategories(categories);
+        var expenseCategories = allCategories.Where(c => c.TypeId == 1).ToList();
+        var incomeCategories = allCategories.Where(c => c.TypeId == 2).ToList();
 
-        var categoryDictionary = GetAllCategories(categories).ToDictionary(x => x.Name, x => x.Id);
-        var placeDictionary = places.ToDictionary(x => x.Name, x => x.Id);
+        var random = new Random(42);
+        var operations = new List<Operation>();
+        var operationId = startIndex;
 
-        List<Operation> operations =
-        [
-            new()
+        for (var monthOffset = -5; monthOffset <= 0; monthOffset++)
+        {
+            var monthDate = now.AddMonths(monthOffset);
+            var daysInMonth = DateTime.DaysInMonth(monthDate.Year, monthDate.Month);
+
+            for (var i = 0; i < 20; i++)
             {
-                UserId = userId,
-                Id = startIndex + 1,
-                Sum = 150000.00m,
-                CategoryId = GetCategoryId("Зарплата"),
-                Comment = "Зарплата за сентябрь",
-                Date = new(2023, 9, 30),
-                PlaceId = GetPlaceId("Работа"),
-            },
+                operationId++;
+                var isIncome = random.NextDouble() < 0.25;
+                var category = isIncome
+                    ? incomeCategories[random.Next(incomeCategories.Count)]
+                    : expenseCategories[random.Next(expenseCategories.Count)];
 
-            new()
-            {
-                UserId = userId,
-                Id = startIndex + 2,
-                Sum = 2000.00m,
-                CategoryId = GetCategoryId("Продукты"),
-                Comment = "Покупка продуктов в супермаркете",
-                Date = new(2023, 10, 01),
-                PlaceId = GetPlaceId("Супермаркет"),
-            },
+                var day = random.Next(1, daysInMonth + 1);
+                var sum = isIncome
+                    ? Math.Round((decimal)(random.NextDouble() * 100000 + 10000), 2)
+                    : Math.Round((decimal)(random.NextDouble() * 5000 + 50), 2);
 
-            new()
-            {
-                UserId = userId,
-                Id = startIndex + 3,
-                Sum = 5000.00m,
-                CategoryId = GetCategoryId("Концерты"),
-                Comment = "Билет на концерт",
-                Date = new(2023, 10, 05),
-                PlaceId = GetPlaceId("Концертный зал"),
-            },
+                var placeId = random.NextDouble() < 0.6
+                    ? places[random.Next(places.Count)].Id
+                    : (int?)null;
 
-            new()
-            {
-                UserId = userId,
-                Id = startIndex + 4,
-                Sum = 30000.00m,
-                CategoryId = GetCategoryId("Аренда недвижимости"),
-                Comment = "Аренда квартиры за октябрь",
-                Date = new(2023, 10, 01),
-                PlaceId = GetPlaceId("Квартира"),
-            },
-
-            new()
-            {
-                UserId = userId,
-                Id = startIndex + 5,
-                Sum = 10000.00m,
-                CategoryId = GetCategoryId("Здоровье"),
-                Comment = "Посещение врача",
-                Date = new(2023, 10, 10),
-                PlaceId = GetPlaceId("Поликлиника"),
-            },
-
-            new()
-            {
-                UserId = userId,
-                Id = startIndex + 6,
-                Sum = 705.00m,
-                CategoryId = GetCategoryId("Развлечения"),
-                Comment = "Подписка на стриминговый сервис",
-                Date = new(2023, 10, 15),
-                PlaceId = null,
-            },
-
-            new()
-            {
-                UserId = userId,
-                Id = startIndex + 7,
-                Sum = 500.00m,
-                CategoryId = GetCategoryId("Пассивный доход"),
-                Comment = "Дивиденды от акций",
-                Date = new(2023, 10, 20),
-                PlaceId = null,
-            },
-
-            new()
-            {
-                UserId = userId,
-                Id = startIndex + 8,
-                Sum = 1200.00m,
-                CategoryId = GetCategoryId("Коммунальные услуги"),
-                Comment = "Оплата за электричество",
-                Date = new(2023, 10, 25),
-                PlaceId = null,
-            },
-
-            new()
-            {
-                UserId = userId,
-                Id = startIndex + 9,
-                Sum = 25000.00m,
-                CategoryId = GetCategoryId("Образование"),
-                Comment = "Оплата курсов по программированию",
-                Date = new(2023, 10, 30),
-                PlaceId = GetPlaceId("Учебный центр"),
-            },
-
-            new()
-            {
-                UserId = userId,
-                Id = startIndex + 10,
-                Sum = 80.00m,
-                CategoryId = GetCategoryId("Транспорт"),
-                Comment = "Оплата проезда на автобусе",
-                Date = new(2023, 10, 28),
-                PlaceId = null,
-            },
-
-            new()
-            {
-                UserId = userId,
-                Id = startIndex + 11,
-                Sum = 3000.00m,
-                CategoryId = GetCategoryId("Электричество"),
-                Comment = "Оплата за электричество за сентябрь",
-                Date = new(2023, 9, 28),
-                PlaceId = null,
-            },
-
-            new()
-            {
-                UserId = userId,
-                Id = startIndex + 12,
-                Sum = 15000.00m,
-                CategoryId = GetCategoryId("Одежда"),
-                Comment = "Покупка новой одежды",
-                Date = new(2023, 10, 12),
-                PlaceId = GetPlaceId("Магазин одежды"),
-            },
-
-            new()
-            {
-                UserId = userId,
-                Id = startIndex + 13,
-                Sum = 4000.00m,
-                CategoryId = GetCategoryId("Дивиденды"),
-                Comment = "Дивиденды от инвестиций в акции",
-                Date = new(2023, 10, 22),
-                PlaceId = null,
-            },
-
-            new()
-            {
-                UserId = userId,
-                Id = startIndex + 14,
-                Sum = 900.00m,
-                CategoryId = GetCategoryId("Развлечения"),
-                Comment = "Посещение кинотеатра",
-                Date = new(2023, 10, 18),
-                PlaceId = GetPlaceId("Кинотеатр"),
-            },
-
-            new()
-            {
-                UserId = userId,
-                Id = startIndex + 15,
-                Sum = 25000.00m,
-                CategoryId = GetCategoryId("Фриланс"),
-                Comment = "Оплата за фриланс-проект",
-                Date = new(2023, 10, 15),
-                PlaceId = null,
-            },
-
-            new()
-            {
-                UserId = userId,
-                Id = startIndex + 16,
-                Sum = 60.00m,
-                CategoryId = GetCategoryId("Общественный транспорт"),
-                Comment = "Оплата проезда на метро",
-                Date = new(2023, 10, 29),
-                PlaceId = null,
-            },
-
-            new()
-            {
-                UserId = userId,
-                Id = startIndex + 17,
-                Sum = 50000.00m,
-                CategoryId = GetCategoryId("Инвестиции"),
-                Comment = "Инвестиции в стартап",
-                Date = new(2023, 10, 05),
-                PlaceId = null,
-            },
-
-            new()
-            {
-                UserId = userId,
-                Id = startIndex + 18,
-                Sum = 35000.00m,
-                CategoryId = GetCategoryId("Премии за достижения"),
-                Comment = "Премия за успешный проект",
-                Date = new(2023, 10, 30),
-                PlaceId = null,
-            },
-
-            new()
-            {
-                UserId = userId,
-                Id = startIndex + 19,
-                Sum = 12000.00m,
-                CategoryId = GetCategoryId("Премии"),
-                Comment = "Премия за выполнение плана",
-                Date = new(2023, 10, 31),
-                PlaceId = null,
-            },
-
-            new()
-            {
-                UserId = userId,
-                Id = startIndex + 20,
-                Sum = 800.00m,
-                CategoryId = GetCategoryId("Мясо и рыба"),
-                Comment = "Покупка мяса на ужин",
-                Date = new(2023, 10, 20),
-                PlaceId = GetPlaceId("Магазин продуктов"),
-            },
-        ];
+                operations.Add(new Operation
+                {
+                    UserId = userId,
+                    Id = operationId,
+                    Sum = sum,
+                    CategoryId = category.Id,
+                    Comment = $"{category.Name} — {new DateOnly(monthDate.Year, monthDate.Month, day):MMMM yyyy}",
+                    Date = new DateTime(monthDate.Year, monthDate.Month, day, 0, 0, 0, DateTimeKind.Utc),
+                    PlaceId = placeId,
+                });
+            }
+        }
 
         return (operations, places);
+    }
 
-        int GetCategoryId(string name)
-        {
-            return categoryDictionary[name];
-        }
+    public static List<FastOperation> SeedFastOperations(int userId, List<Category> categories, int startIndex = 0)
+    {
+        var allCategories = GetAllCategories(categories);
+        var byName = allCategories.ToDictionary(c => c.Name, c => c.Id);
 
-        int? GetPlaceId(string name)
-        {
-            return placeDictionary.TryGetValue(name, out var id) ? id : null;
-        }
+        return
+        [
+            new FastOperation
+            {
+                UserId = userId, Id = startIndex + 1,
+                Name = "Кофе", Sum = 150m, CategoryId = byName["Продукты"], Order = 1,
+            },
+            new FastOperation
+            {
+                UserId = userId, Id = startIndex + 2,
+                Name = "Обед", Sum = 500m, CategoryId = byName["Продукты"], Order = 2,
+            },
+            new FastOperation
+            {
+                UserId = userId, Id = startIndex + 3,
+                Name = "Метро", Sum = 60m, CategoryId = byName["Общественный транспорт"], Order = 3,
+            },
+            new FastOperation
+            {
+                UserId = userId, Id = startIndex + 4,
+                Name = "Такси", Sum = 400m, CategoryId = byName["Такси"], Order = 4,
+            },
+            new FastOperation
+            {
+                UserId = userId, Id = startIndex + 5,
+                Name = "Продукты", Sum = 2000m, CategoryId = byName["Продукты"], Order = 5,
+            },
+        ];
+    }
+
+    public static List<RegularOperation> SeedRegularOperations(
+        int userId, List<Category> categories, DateTime now, int startIndex = 0)
+    {
+        var allCategories = GetAllCategories(categories);
+        var byName = allCategories.ToDictionary(c => c.Name, c => c.Id);
+        var sixMonthsAgo = now.AddMonths(-6).Date;
+
+        return
+        [
+            new RegularOperation
+            {
+                UserId = userId, Id = startIndex + 1,
+                Name = "Аренда квартиры", Sum = 30000m,
+                CategoryId = byName["Коммунальные услуги"],
+                TimeTypeId = 1, TimeValue = 1,
+                DateFrom = sixMonthsAgo,
+            },
+            new RegularOperation
+            {
+                UserId = userId, Id = startIndex + 2,
+                Name = "Подписка на стриминг", Sum = 700m,
+                CategoryId = byName["Развлечения"],
+                TimeTypeId = 1, TimeValue = 1,
+                DateFrom = sixMonthsAgo,
+            },
+            new RegularOperation
+            {
+                UserId = userId, Id = startIndex + 3,
+                Name = "Зарплата", Sum = 150000m,
+                CategoryId = byName["Зарплата"],
+                TimeTypeId = 1, TimeValue = 1,
+                DateFrom = sixMonthsAgo,
+            },
+            new RegularOperation
+            {
+                UserId = userId, Id = startIndex + 4,
+                Name = "Электричество", Sum = 3000m,
+                CategoryId = byName["Электричество"],
+                TimeTypeId = 1, TimeValue = 1,
+                DateFrom = sixMonthsAgo,
+            },
+        ];
     }
 
     private static List<Place> SeedPlaces(int userId, int startIndex = 0)
@@ -537,7 +423,7 @@ public static class DatabaseSeeder
                 UserId = userId,
                 Id = startIndex + 1,
                 Name = "Работа",
-                LastUsedDate = DateTime.Now,
+                LastUsedDate = DateTime.UtcNow,
             },
 
             new()
@@ -545,7 +431,7 @@ public static class DatabaseSeeder
                 UserId = userId,
                 Id = startIndex + 2,
                 Name = "Супермаркет",
-                LastUsedDate = DateTime.Now,
+                LastUsedDate = DateTime.UtcNow,
             },
 
             new()
@@ -553,7 +439,7 @@ public static class DatabaseSeeder
                 UserId = userId,
                 Id = startIndex + 3,
                 Name = "Концертный зал",
-                LastUsedDate = DateTime.Now,
+                LastUsedDate = DateTime.UtcNow,
             },
 
             new()
@@ -561,7 +447,7 @@ public static class DatabaseSeeder
                 UserId = userId,
                 Id = startIndex + 4,
                 Name = "Квартира",
-                LastUsedDate = DateTime.Now,
+                LastUsedDate = DateTime.UtcNow,
             },
 
             new()
@@ -569,7 +455,7 @@ public static class DatabaseSeeder
                 UserId = userId,
                 Id = startIndex + 5,
                 Name = "Поликлиника",
-                LastUsedDate = DateTime.Now,
+                LastUsedDate = DateTime.UtcNow,
             },
 
             new()
@@ -577,7 +463,7 @@ public static class DatabaseSeeder
                 UserId = userId,
                 Id = startIndex + 6,
                 Name = "Магазин одежды",
-                LastUsedDate = DateTime.Now,
+                LastUsedDate = DateTime.UtcNow,
             },
 
             new()
@@ -585,7 +471,7 @@ public static class DatabaseSeeder
                 UserId = userId,
                 Id = startIndex + 7,
                 Name = "Кинотеатр",
-                LastUsedDate = DateTime.Now,
+                LastUsedDate = DateTime.UtcNow,
             },
 
             new()
@@ -593,7 +479,7 @@ public static class DatabaseSeeder
                 UserId = userId,
                 Id = startIndex + 8,
                 Name = "Учебный центр",
-                LastUsedDate = DateTime.Now,
+                LastUsedDate = DateTime.UtcNow,
             },
 
             new()
@@ -601,11 +487,137 @@ public static class DatabaseSeeder
                 UserId = userId,
                 Id = startIndex + 9,
                 Name = "Магазин продуктов",
-                LastUsedDate = DateTime.Now,
+                LastUsedDate = DateTime.UtcNow,
             },
         };
 
         return places;
+    }
+
+    public static List<DebtOwner> SeedDebtOwners(int userId, int startIndex = 0)
+    {
+        return
+        [
+            new DebtOwner { UserId = userId, Id = startIndex + 1, Name = "Иван Петров" },
+            new DebtOwner { UserId = userId, Id = startIndex + 2, Name = "Мария Сидорова" },
+            new DebtOwner { UserId = userId, Id = startIndex + 3, Name = "Алексей Козлов" },
+        ];
+    }
+
+    public static List<Debt> SeedDebts(int userId, List<DebtOwner> owners, DateTime now, int startIndex = 0)
+    {
+        return
+        [
+            new Debt
+            {
+                UserId = userId, Id = startIndex + 1,
+                OwnerId = owners[0].Id, TypeId = 1, Sum = 15000m, PaySum = 0m,
+                StatusId = 1, Date = now.AddDays(-10),
+                Comment = "Долг за ужин",
+            },
+            new Debt
+            {
+                UserId = userId, Id = startIndex + 2,
+                OwnerId = owners[1].Id, TypeId = 2, Sum = 50000m, PaySum = 20000m,
+                StatusId = 2, Date = now.AddDays(-45),
+                Comment = "Заём на ремонт", PayComment = "Частичный возврат",
+            },
+            new Debt
+            {
+                UserId = userId, Id = startIndex + 3,
+                OwnerId = owners[2].Id, TypeId = 1, Sum = 3000m, PaySum = 3000m,
+                StatusId = 3, Date = now.AddDays(-80),
+                Comment = "За билеты на концерт", PayComment = "Полностью погашен",
+            },
+            new Debt
+            {
+                UserId = userId, Id = startIndex + 4,
+                OwnerId = owners[0].Id, TypeId = 2, Sum = 25000m, PaySum = 0m,
+                StatusId = 1, Date = now.AddDays(-5),
+                Comment = "Одолжил на отпуск",
+            },
+            new Debt
+            {
+                UserId = userId, Id = startIndex + 5,
+                OwnerId = owners[1].Id, TypeId = 1, Sum = 8000m, PaySum = 4000m,
+                StatusId = 2, Date = now.AddDays(-60),
+                Comment = "За подарок", PayComment = "Половина",
+            },
+            new Debt
+            {
+                UserId = userId, Id = startIndex + 6,
+                OwnerId = owners[2].Id, TypeId = 2, Sum = 100000m, PaySum = 0m,
+                StatusId = 1, Date = now.AddDays(-20),
+                Comment = "Заём на автомобиль",
+            },
+        ];
+    }
+
+    public static List<Car> SeedCars(int userId, int startIndex = 0)
+    {
+        return
+        [
+            new Car { UserId = userId, Id = startIndex + 1, Name = "Toyota Camry" },
+            new Car { UserId = userId, Id = startIndex + 2, Name = "Volkswagen Golf" },
+        ];
+    }
+
+    public static List<CarEvent> SeedCarEvents(int userId, List<Car> cars, DateTime now, int startIndex = 0)
+    {
+        var camryId = cars[0].Id;
+        var golfId = cars[1].Id;
+
+        return
+        [
+            new CarEvent
+            {
+                UserId = userId, Id = startIndex + 1, CarId = camryId,
+                TypeId = 1, Title = "ТО-1 плановое", Comment = "Замена масла и фильтров",
+                Mileage = 15000, Date = now.AddMonths(-5),
+            },
+            new CarEvent
+            {
+                UserId = userId, Id = startIndex + 2, CarId = camryId,
+                TypeId = 2, Title = "Заправка", Comment = "АИ-95, полный бак",
+                Mileage = 15800, Date = now.AddMonths(-4),
+            },
+            new CarEvent
+            {
+                UserId = userId, Id = startIndex + 3, CarId = camryId,
+                TypeId = 3, Title = "Замена тормозных колодок",
+                Mileage = 20000, Date = now.AddMonths(-2),
+            },
+            new CarEvent
+            {
+                UserId = userId, Id = startIndex + 4, CarId = camryId,
+                TypeId = 4, Title = "ОСАГО", Comment = "Годовой полис",
+                Mileage = 22000, Date = now.AddMonths(-1),
+            },
+            new CarEvent
+            {
+                UserId = userId, Id = startIndex + 5, CarId = golfId,
+                TypeId = 1, Title = "ТО-2 плановое", Comment = "Полное ТО",
+                Mileage = 45000, Date = now.AddMonths(-4),
+            },
+            new CarEvent
+            {
+                UserId = userId, Id = startIndex + 6, CarId = golfId,
+                TypeId = 2, Title = "Заправка", Comment = "АИ-92",
+                Mileage = 46200, Date = now.AddMonths(-3),
+            },
+            new CarEvent
+            {
+                UserId = userId, Id = startIndex + 7, CarId = golfId,
+                TypeId = 3, Title = "Ремонт подвески", Comment = "Замена стоек стабилизатора",
+                Mileage = 48000, Date = now.AddMonths(-1),
+            },
+            new CarEvent
+            {
+                UserId = userId, Id = startIndex + 8, CarId = golfId,
+                TypeId = 2, Title = "Заправка", Comment = "АИ-92, 40 литров",
+                Mileage = 49500, Date = now.AddDays(-7),
+            },
+        ];
     }
 
     private static int SetCategoryIds(List<Category> categories, ref int currentIndex)

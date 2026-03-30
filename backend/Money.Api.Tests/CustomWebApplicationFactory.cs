@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Minio;
+using Minio.DataModel.Args;
 using Money.Api.Services.Analytics;
 using Money.Business.Services;
 using StackExchange.Redis;
@@ -18,6 +20,7 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProg
     public string? RedisConnectionString { get; set; }
     public string? ClickHouseConnectionString { get; set; }
     public string? Neo4jBoltUri { get; set; }
+    public string? MinioConnectionString { get; set; }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -64,6 +67,20 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProg
             ]);
         }
 
+        if (MinioConnectionString != null)
+        {
+            var minioUri = new Uri(MinioConnectionString);
+            var minioEndpoint = $"{minioUri.Host}:{minioUri.Port}";
+
+            builderConfig.AddInMemoryCollection([
+                new("Lakehouse:MinioEndpoint", minioEndpoint),
+                new("Lakehouse:MinioAccessKey", "AKIAIOSFODNN7EXAMPLE"),
+                new("Lakehouse:MinioSecretKey", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"),
+                new("Lakehouse:Warehouse", "s3://lakehouse-warehouse/"),
+                new("Lakehouse:SyncIntervalSeconds", "0.1"),
+            ]);
+        }
+
         var configRoot = builderConfig.Build();
 
         builder.ConfigureServices(services =>
@@ -82,6 +99,34 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProg
                     client.Timeout = TimeSpan.FromSeconds(10);
                 })
                 .ConfigurePrimaryHttpMessageHandler(_ => mockCubeHandler);
+
+            if (MinioConnectionString != null)
+            {
+                var minioUri = new Uri(MinioConnectionString);
+                var minioEndpoint = $"{minioUri.Host}:{minioUri.Port}";
+
+                var minioDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IMinioClient));
+
+                if (minioDescriptor != null)
+                {
+                    services.Remove(minioDescriptor);
+                }
+
+                var minioClient = (IMinioClient)new MinioClient()
+                    .WithEndpoint(minioEndpoint)
+                    .WithCredentials("AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
+                    .WithSSL(false)
+                    .Build();
+
+                var bucketExists = minioClient.BucketExistsAsync(new BucketExistsArgs().WithBucket("lakehouse-warehouse")).GetAwaiter().GetResult();
+
+                if (!bucketExists)
+                {
+                    minioClient.MakeBucketAsync(new MakeBucketArgs().WithBucket("lakehouse-warehouse")).GetAwaiter().GetResult();
+                }
+
+                services.AddSingleton(minioClient);
+            }
 
             if (RedisConnectionString == null)
             {

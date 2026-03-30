@@ -1,0 +1,348 @@
+@page "/admin/lakehouse"
+@using Money.ApiClient
+@using static ApiClient.AdminClient
+@attribute [Authorize]
+@implements IDisposable
+
+@inject MoneyClient Client
+
+<PageTitle>Data Lakehouse</PageTitle>
+
+<MudText Typo="Typo.h5"
+         GutterBottom>Data Lakehouse
+</MudText>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (_error != null)
+{
+    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+}
+else if (_stats != null)
+{
+    <MudGrid Class="mb-4">
+        <MudItem xs="12"
+                 sm="6"
+                 md="4">
+            <MudPaper Class="pa-4"
+                      Elevation="0">
+                <MudStack Row
+                          AlignItems="AlignItems.Center"
+                          Spacing="3">
+                    <MudIcon Icon="@Icons.Material.Rounded.Sync"
+                             Color="Color.Primary"
+                             Size="Size.Large" />
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.caption"
+                                 Class="mud-text-secondary">Последняя синхронизация
+                        </MudText>
+                        <MudText Typo="Typo.h5">@(_stats.LastSyncUtc?.ToString("g") ?? "—")</MudText>
+                        @if (_stats.LastSyncUtc != null)
+                        {
+                            <MudText Typo="Typo.caption"
+                                     Class="mud-text-secondary">@FormatTimeAgo(_stats.LastSyncUtc.Value)
+                            </MudText>
+                        }
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12"
+                 sm="6"
+                 md="4">
+            <MudPaper Class="pa-4"
+                      Elevation="0">
+                <MudStack Row
+                          AlignItems="AlignItems.Center"
+                          Spacing="3">
+                    <MudIcon Icon="@Icons.Material.Rounded.EventNote"
+                             Color="Color.Secondary"
+                             Size="Size.Large" />
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.caption"
+                                 Class="mud-text-secondary">Обработано событий
+                        </MudText>
+                        <MudText Typo="Typo.h5">@_stats.TotalEventsProcessed.ToString("N0")</MudText>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12"
+                 sm="6"
+                 md="4">
+            <MudPaper Class="pa-4"
+                      Elevation="0">
+                <MudStack Row
+                          AlignItems="AlignItems.Center"
+                          Spacing="3">
+                    <MudIcon Icon="@Icons.Material.Rounded.Storage"
+                             Color="Color.Success"
+                             Size="Size.Large" />
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.caption"
+                                 Class="mud-text-secondary">Общий размер
+                        </MudText>
+                        <MudText Typo="Typo.h5">@FormatBytes(_stats.Layers.Sum(l => l.TotalBytes))</MudText>
+                        <MudText Typo="Typo.caption"
+                                 Class="mud-text-secondary">@_stats.Layers.Sum(l => l.FileCount) файлов
+                        </MudText>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudPaper Class="pa-4 mb-4"
+              Elevation="2">
+        <MudText Typo="Typo.h6"
+                 GutterBottom>Слои хранения
+        </MudText>
+
+        @{ var maxBytes = _stats.Layers.Max(l => l.TotalBytes); }
+
+        <MudStack Spacing="4">
+            @foreach (var layer in _stats.Layers)
+            {
+                <MudStack Spacing="1">
+                    <MudStack Row
+                              Justify="Justify.SpaceBetween"
+                              AlignItems="AlignItems.Center">
+                        <MudStack Row
+                                  AlignItems="AlignItems.Center"
+                                  Spacing="2">
+                            <MudChip T="string"
+                                     Size="Size.Small"
+                                     Color="@GetLayerColor(layer.Name)">@layer.Name</MudChip>
+                            <MudText Typo="Typo.body2">@layer.FileCount файлов</MudText>
+                        </MudStack>
+                        <MudText Typo="Typo.body2"
+                                 Color="Color.Primary">
+                            <b>@FormatBytes(layer.TotalBytes)</b>
+                        </MudText>
+                    </MudStack>
+                    <MudProgressLinear Value="@(maxBytes > 0 ? (double)layer.TotalBytes / maxBytes * 100 : 0)"
+                                       Color="@GetLayerColor(layer.Name)"
+                                       Rounded
+                                       Size="Size.Medium" />
+                </MudStack>
+            }
+        </MudStack>
+    </MudPaper>
+
+    <MudPaper Class="pa-4 mb-4"
+              Elevation="2">
+        <MudStack Row
+                  Justify="Justify.SpaceBetween"
+                  AlignItems="AlignItems.Center"
+                  Class="mb-3">
+            <MudStack Spacing="0">
+                <MudText Typo="Typo.h6">Управление</MudText>
+                <MudText Typo="Typo.caption"
+                         Class="mud-text-secondary">
+                    Обновление каждые 30 сек
+                </MudText>
+            </MudStack>
+        </MudStack>
+
+        <MudGrid>
+            <MudItem xs="12"
+                     sm="4">
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           FullWidth
+                           StartIcon="@Icons.Material.Rounded.Sync"
+                           Disabled="_actionLoading"
+                           OnClick="ForceSync">
+                    @if (_actionLoading && _currentAction == "sync")
+                    {
+                        <MudProgressCircular Indeterminate="true"
+                                             Size="Size.Small"
+                                             Class="mr-2" />
+                    }
+                    Синхронизировать
+                </MudButton>
+            </MudItem>
+            <MudItem xs="12"
+                     sm="4">
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Secondary"
+                           FullWidth
+                           StartIcon="@Icons.Material.Rounded.Transform"
+                           Disabled="_actionLoading"
+                           OnClick="ForceTransform">
+                    @if (_actionLoading && _currentAction == "transform")
+                    {
+                        <MudProgressCircular Indeterminate="true"
+                                             Size="Size.Small"
+                                             Class="mr-2" />
+                    }
+                    Трансформировать
+                </MudButton>
+            </MudItem>
+            <MudItem xs="12"
+                     sm="4">
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Warning"
+                           FullWidth
+                           StartIcon="@Icons.Material.Rounded.FactCheck"
+                           Disabled="_actionLoading"
+                           OnClick="ForceReconcile">
+                    @if (_actionLoading && _currentAction == "reconcile")
+                    {
+                        <MudProgressCircular Indeterminate="true"
+                                             Size="Size.Small"
+                                             Class="mr-2" />
+                    }
+                    Сверка
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+
+        @if (_actionSuccess != null)
+        {
+            <MudAlert Severity="Severity.Success"
+                      Dense
+                      Variant="Variant.Outlined"
+                      Class="mt-3">@_actionSuccess</MudAlert>
+        }
+    </MudPaper>
+
+    <MudPaper Class="pa-4 mb-4"
+              Elevation="2">
+        <MudText Typo="Typo.h6"
+                 GutterBottom>Запросы к Lakehouse
+        </MudText>
+
+        <MudStack Row
+                  AlignItems="AlignItems.Center"
+                  Spacing="2"
+                  Class="mb-3">
+            <MudChipSet T="string"
+                        SelectionMode="SelectionMode.SingleSelection"
+                        SelectedValue="_queryEngine"
+                        SelectedValueChanged="@(v => _queryEngine = v ?? "trino")">
+                <MudChip T="string"
+                         Value="@("trino")"
+                         Variant="Variant.Outlined"
+                         Color="Color.Primary"
+                         Icon="@Icons.Material.Rounded.Hub">Trino</MudChip>
+                <MudChip T="string"
+                         Value="@("duckdb")"
+                         Variant="Variant.Outlined"
+                         Color="Color.Secondary"
+                         Icon="@Icons.Material.Rounded.Storage">DuckDB</MudChip>
+            </MudChipSet>
+        </MudStack>
+
+        <MudGrid Class="mb-3">
+            <MudItem xs="12"
+                     sm="4">
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           FullWidth
+                           StartIcon="@Icons.Material.Rounded.CalendarMonth"
+                           Disabled="_queryLoading"
+                           OnClick='() => RunPresetQuery("SELECT * FROM iceberg.gold.monthly_spending ORDER BY month DESC, total_sum DESC LIMIT 50")'>
+                    Месячные расходы
+                </MudButton>
+            </MudItem>
+            <MudItem xs="12"
+                     sm="4">
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Secondary"
+                           FullWidth
+                           StartIcon="@Icons.Material.Rounded.Category"
+                           Disabled="_queryLoading"
+                           OnClick='() => RunPresetQuery("SELECT category_name, SUM(total_sum) AS total, SUM(operation_count) AS ops FROM iceberg.gold.monthly_spending GROUP BY category_name ORDER BY total DESC LIMIT 10")'>
+                    Топ категорий
+                </MudButton>
+            </MudItem>
+            <MudItem xs="12"
+                     sm="4">
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Warning"
+                           FullWidth
+                           StartIcon="@Icons.Material.Rounded.JoinInner"
+                           Disabled="_queryLoading"
+                           OnClick="() => RunPresetQuery(FederatedQuery)">
+                    Федеративный запрос
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+
+        <MudTextField T="string"
+                      @bind-Value="_customSql"
+                      Label="Произвольный SQL-запрос"
+                      Variant="Variant.Outlined"
+                      Lines="3"
+                      Placeholder="SELECT * FROM iceberg.gold.monthly_spending LIMIT 10"
+                      Adornment="Adornment.End"
+                      AdornmentIcon="@Icons.Material.Rounded.PlayArrow"
+                      AdornmentColor="Color.Primary"
+                      OnAdornmentClick="RunCustomQuery"
+                      Disabled="_queryLoading"
+                      Class="mb-3" />
+
+        @if (!string.IsNullOrWhiteSpace(_lastExecutedSql))
+        {
+            <MudAlert Severity="Severity.Info"
+                      Dense
+                      Variant="Variant.Text"
+                      Class="mb-3">
+                <MudText Typo="Typo.caption"
+                         Style="font-family: monospace; white-space: pre-wrap;">@_lastExecutedSql</MudText>
+            </MudAlert>
+        }
+
+        @if (_queryLoading)
+        {
+            <MudProgressCircular Indeterminate="true" />
+        }
+        else if (_queryError != null)
+        {
+            <MudAlert Severity="Severity.Error">@_queryError</MudAlert>
+        }
+        else if (_queryResults != null && _queryResults.Count == 0)
+        {
+            <MudAlert Severity="Severity.Info">Нет данных</MudAlert>
+        }
+        else if (_queryResults != null)
+        {
+            <MudStack Row
+                      Justify="Justify.SpaceBetween"
+                      AlignItems="AlignItems.Center"
+                      Class="mb-2">
+                <MudText Typo="Typo.caption"
+                         Class="mud-text-secondary">
+                    Результат: @_queryResults.Count строк
+                </MudText>
+            </MudStack>
+
+            <MudSimpleTable Dense
+                            Hover
+                            Striped>
+                <thead>
+                <tr>
+                    @foreach (var col in _queryColumns)
+                    {
+                        <th>@col</th>
+                    }
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var row in _queryResults)
+                {
+                    <tr>
+                        @foreach (var col in _queryColumns)
+                        {
+                            <td>@(row.TryGetValue(col, out var val) ? val?.ToString() : "")</td>
+                        }
+                    </tr>
+                }
+                </tbody>
+            </MudSimpleTable>
+        }
+    </MudPaper>
+}

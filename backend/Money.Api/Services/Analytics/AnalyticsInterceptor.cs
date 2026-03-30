@@ -40,6 +40,16 @@ public class AnalyticsInterceptor : SaveChangesInterceptor
             return new(result);
         }
 
+        var userIds = operations.Select(e => e.Entity.UserId)
+            .Union(debts.Select(e => e.Entity.UserId))
+            .Union(categoryEntries.Select(e => e.Entity.UserId))
+            .Distinct()
+            .ToList();
+
+        var authUserMap = db.DomainUsers
+            .Where(u => userIds.Contains(u.Id))
+            .ToDictionary(u => u.Id, u => u.AuthUserId);
+
         var categories = db.ChangeTracker.Entries<DataCategory>()
             .ToDictionary(e => (e.Entity.UserId, e.Entity.Id), e => e.Entity);
 
@@ -70,7 +80,10 @@ public class AnalyticsInterceptor : SaveChangesInterceptor
                 placeName = place?.Name;
             }
 
+            authUserMap.TryGetValue(op.UserId, out var authUserId);
+
             var payload = new OperationPayload(op.UserId,
+                authUserId,
                 op.Id,
                 op.CategoryId,
                 cat?.Name ?? "",
@@ -102,7 +115,10 @@ public class AnalyticsInterceptor : SaveChangesInterceptor
             owners.TryGetValue((debt.UserId, debt.OwnerId), out var owner);
             owner ??= debt.Owner;
 
+            authUserMap.TryGetValue(debt.UserId, out var debtAuthUserId);
+
             var payload = new DebtPayload(debt.UserId,
+                debtAuthUserId,
                 debt.Id,
                 owner?.Name ?? "",
                 debt.TypeId,
@@ -126,7 +142,10 @@ public class AnalyticsInterceptor : SaveChangesInterceptor
             var cat = entry.Entity;
             var action = entry.State == EntityState.Added ? "added" : "modified";
 
+            authUserMap.TryGetValue(cat.UserId, out var catAuthUserId);
+
             var payload = new CategoryPayload(cat.UserId,
+                catAuthUserId,
                 cat.Id,
                 cat.Name,
                 cat.TypeId,

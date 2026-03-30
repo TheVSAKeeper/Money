@@ -115,6 +115,36 @@ public sealed class AdminClient(MoneyClient apiClient) : ApiClientExecutor(apiCl
         return GetAsync<GraphResponse>($"{BaseUri}/neo4j/categories?limit={limit}");
     }
 
+    public Task<ApiClientResponse<LakehouseStatsResponse>> GetLakehouseStats()
+    {
+        return GetAsync<LakehouseStatsResponse>($"{BaseUri}/Lakehouse/Stats");
+    }
+
+    public Task<ApiClientResponse<List<Dictionary<string, object?>>>> QueryLakehouseDuckDb(string sql)
+    {
+        return PostAsync<List<Dictionary<string, object?>>>($"{BaseUri}/Lakehouse/QueryDuckDb", new LakehouseQueryRequest { Sql = sql });
+    }
+
+    public Task<ApiClientResponse<List<Dictionary<string, object?>>>> QueryLakehouseTrino(string sql)
+    {
+        return PostAsync<List<Dictionary<string, object?>>>($"{BaseUri}/Lakehouse/QueryTrino", new LakehouseQueryRequest { Sql = sql });
+    }
+
+    public Task<ApiClientResponse> ForceLakehouseSync()
+    {
+        return PostAsync($"{BaseUri}/Lakehouse/Sync");
+    }
+
+    public Task<ApiClientResponse> ForceLakehouseTransform()
+    {
+        return PostAsync($"{BaseUri}/Lakehouse/Transform");
+    }
+
+    public Task<ApiClientResponse> ForceLakehouseReconciliation()
+    {
+        return PostAsync($"{BaseUri}/Lakehouse/Reconcile");
+    }
+
     public class CubeResultSet
     {
         public List<Dictionary<string, object?>> Data { get; set; } = [];
@@ -297,5 +327,24 @@ public sealed class AdminClient(MoneyClient apiClient) : ApiClientExecutor(apiCl
         public double AvgDurationMs { get; set; }
         public double P95DurationMs { get; set; }
         public double ErrorRatePercent { get; set; }
+    }
+
+    public class LakehouseStatsResponse
+    {
+        public List<LakehouseLayerInfo> Layers { get; set; } = [];
+        public DateTimeOffset? LastSyncUtc { get; set; }
+        public long TotalEventsProcessed { get; set; }
+    }
+
+    public class LakehouseLayerInfo
+    {
+        public string Name { get; set; } = "";
+        public int FileCount { get; set; }
+        public long TotalBytes { get; set; }
+    }
+
+    public class LakehouseQueryRequest
+    {
+        public string Sql { get; set; } = "";
     }
 }

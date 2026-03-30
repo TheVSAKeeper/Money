@@ -42,6 +42,9 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="OpenIddict.AspNetCore" />
     <PackageReference Include="OpenIddict.EntityFrameworkCore" />
+    <PackageReference Include="DuckDB.NET.Data.Full" />
+    <PackageReference Include="Minio" />
+    <PackageReference Include="Parquet.Net" />
     <PackageReference Include="Scalar.AspNetCore" />
     <PackageReference Include="Swashbuckle.AspNetCore" />
   </ItemGroup>

@@ -55,7 +55,11 @@
     <PackageVersion Include="Neo4j.Driver" Version="5.26.0" />
     <PackageVersion Include="Testcontainers.Neo4j" Version="4.11.0" />
     <PackageVersion Include="Testcontainers.ClickHouse" Version="4.11.0" />
+    <PackageVersion Include="Testcontainers.Minio" Version="4.11.0" />
     <PackageVersion Include="Aspire.StackExchange.Redis" Version="13.1.2" />
+    <PackageVersion Include="Minio" Version="7.0.0" />
+    <PackageVersion Include="Parquet.Net" Version="5.5.0" />
+    <PackageVersion Include="DuckDB.NET.Data.Full" Version="1.5.0" />
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" Version="10.0.5" />
     <PackageVersion Include="System.IO.Hashing" Version="10.0.5" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.4.0" />

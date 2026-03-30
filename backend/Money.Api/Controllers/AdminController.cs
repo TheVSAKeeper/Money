@@ -5,6 +5,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Money.Api.BackgroundServices;
 using Money.Api.Dto.Admin;
 using Money.Api.Services.Analytics;
+using Money.Api.Services.Lakehouse;
 using Money.Api.Services.Notifications;
 using Money.Business;
 using Money.Business.Interfaces;
@@ -36,6 +37,10 @@ public class AdminController(
     AdminNotificationPublisher adminPublisher,
     ClickHouseService clickHouseService,
     ClickHouseSyncService clickHouseSyncService,
+    LakehouseSyncService lakehouseSyncService,
+    LakehouseQueryService lakehouseQueryService,
+    LakehouseTransformService lakehouseTransformService,
+    LakehouseReconciliationService lakehouseReconciliationService,
     ILogger<AdminController> logger) : ControllerBase
 {
     /// <summary>
@@ -523,26 +528,22 @@ public class AdminController(
 
         foreach (var (user, subject) in users.Zip(subjects))
         {
-            await emailQueueService.EnqueueAsync(new($"{user}@example.com",
+            await emailQueueService.EnqueueAsync(new MailMessage($"{user}@example.com",
                 subject,
                 $"Здравствуйте, {user}! {subject}."));
         }
 
-        var retryEnvelope = new MailEnvelope
+        await emailQueueService.EnqueueRetryAsync(new MailEnvelope
         {
             Message = new("retry.user@example.com", "Повторная попытка", "Письмо ожидает повторной отправки."),
             RetryCount = 1,
-        };
+        });
 
-        await emailQueueService.EnqueueRetryAsync(retryEnvelope);
-
-        var dlqEnvelope = new MailEnvelope
+        await emailQueueService.EnqueueDeadLetterAsync(new MailEnvelope
         {
             Message = new("dead.letter@example.com", "Недоставленное письмо", "Превышен лимит попыток."),
             RetryCount = 3,
-        };
-
-        await emailQueueService.EnqueueDeadLetterAsync(dlqEnvelope);
+        });
 
         logger.LogInformation("Демо-данные добавлены в email-очередь пользователем {UserId}", environment.UserId);
         return NoContent();
@@ -680,5 +681,90 @@ public class AdminController(
     {
         limit = Math.Clamp(limit, 1, 2000);
         return await categoryGraph.GetCategoryTreeAsync($"{environment.ShardName}_{environment.UserId}", limit);
+    }
+
+    /// <summary>
+    /// Статистика Data Lakehouse: слои, файлы, размеры.
+    /// </summary>
+    [HttpGet("Lakehouse/Stats")]
+    [ProducesResponseType(typeof(LakehouseStatsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<LakehouseStatsResponse> GetLakehouseStats()
+    {
+        var storageInfo = await lakehouseQueryService.GetStorageInfoAsync(HttpContext.RequestAborted);
+
+        return new()
+        {
+            Layers = storageInfo.Layers,
+            LastSyncUtc = lakehouseSyncService.LastSyncUtc,
+            TotalEventsProcessed = lakehouseSyncService.TotalEventsProcessed,
+        };
+    }
+
+    /// <summary>
+    /// Запрос к Lakehouse через DuckDB (Bronze/Silver/Gold Parquet).
+    /// </summary>
+    [HttpPost("Lakehouse/QueryDuckDb")]
+    [ProducesResponseType(typeof(List<Dictionary<string, object?>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public Task<List<Dictionary<string, object?>>> QueryLakehouseDuckDb([FromBody] LakehouseQueryRequest request)
+    {
+        return lakehouseQueryService.QueryDuckDbAsync(request.Sql, HttpContext.RequestAborted);
+    }
+
+    /// <summary>
+    /// Запрос к Lakehouse через Trino (федеративный SQL).
+    /// </summary>
+    [HttpPost("Lakehouse/QueryTrino")]
+    [ProducesResponseType(typeof(List<Dictionary<string, object?>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public Task<List<Dictionary<string, object?>>> QueryLakehouseTrino([FromBody] LakehouseQueryRequest request)
+    {
+        return lakehouseQueryService.QueryTrinoAsync(request.Sql, HttpContext.RequestAborted);
+    }
+
+    /// <summary>
+    /// Принудительный запуск синхронизации Lakehouse.
+    /// </summary>
+    [HttpPost("Lakehouse/Sync")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> ForceLakehouseSync()
+    {
+        await lakehouseSyncService.RunSyncAsync(HttpContext.RequestAborted);
+        logger.LogInformation("Lakehouse sync forced by user {UserId}", environment.UserId);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Принудительный запуск трансформации Bronze → Silver → Gold.
+    /// </summary>
+    [HttpPost("Lakehouse/Transform")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> ForceLakehouseTransform()
+    {
+        await lakehouseTransformService.TransformBronzeToSilverAsync(HttpContext.RequestAborted);
+        await lakehouseTransformService.TransformSilverToGoldAsync(HttpContext.RequestAborted);
+        logger.LogInformation("Lakehouse transform forced by user {UserId}", environment.UserId);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Принудительный запуск сверки Lakehouse.
+    /// </summary>
+    [HttpPost("Lakehouse/Reconcile")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> ForceLakehouseReconciliation()
+    {
+        await lakehouseReconciliationService.ReconcileAsync(HttpContext.RequestAborted);
+        logger.LogInformation("Lakehouse reconciliation forced by user {UserId}", environment.UserId);
+        return NoContent();
+    }
+
+    public class LakehouseQueryRequest
+    {
+        public string Sql { get; set; } = "";
     }
 }

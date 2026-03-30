@@ -37,6 +37,7 @@
     <PackageReference Include="Testcontainers.Redis" />
     <PackageReference Include="Testcontainers.Neo4j" />
     <PackageReference Include="Testcontainers.ClickHouse" />
+    <PackageReference Include="Testcontainers.Minio" />
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
   </ItemGroup>
 

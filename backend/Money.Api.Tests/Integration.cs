@@ -7,6 +7,7 @@ using Money.Data.Sharding;
 using Neo4j.Driver;
 using System.Collections.Concurrent;
 using Testcontainers.ClickHouse;
+using Testcontainers.Minio;
 using Testcontainers.Neo4j;
 using Testcontainers.PostgreSql;
 using Testcontainers.Redis;
@@ -75,6 +76,7 @@ public class Integration
         _redisContainer = new RedisBuilder("redis:8.2").Build();
         _clickHouseContainer = new ClickHouseBuilder("clickhouse/clickhouse-server:26.2-alpine").Build();
         _neo4jContainer = new Neo4jBuilder("neo4j:2026.02.3").Build();
+        _minioContainer = new MinioBuilder().Build();
 
         await Task.WhenAll(_routingContainer.StartAsync(),
             _dundukContainer.StartAsync(),
@@ -82,7 +84,8 @@ public class Integration
             _burundukContainer.StartAsync(),
             _redisContainer.StartAsync(),
             _clickHouseContainer.StartAsync(),
-            _neo4jContainer.StartAsync());
+            _neo4jContainer.StartAsync(),
+            _minioContainer.StartAsync());
 
         CustomWebApplicationFactory<Program> webHostBuilder = new()
         {
@@ -93,6 +96,7 @@ public class Integration
             RedisConnectionString = _redisContainer.GetConnectionString(),
             ClickHouseConnectionString = _clickHouseContainer.GetConnectionString(),
             Neo4jBoltUri = _neo4jContainer.GetConnectionString(),
+            MinioConnectionString = _minioContainer.GetConnectionString(),
         };
 
         webHostBuilder.Server.PreserveExecutionContext = true;
@@ -117,7 +121,8 @@ public class Integration
             _burundukContainer.DisposeAsync().AsTask(),
             _redisContainer.DisposeAsync().AsTask(),
             _clickHouseContainer.DisposeAsync().AsTask(),
-            _neo4jContainer.DisposeAsync().AsTask());
+            _neo4jContainer.DisposeAsync().AsTask(),
+            _minioContainer.DisposeAsync().AsTask());
     }
 
 #pragma warning disable NUnit1032
@@ -128,5 +133,6 @@ public class Integration
     private static RedisContainer _redisContainer = null!;
     private static ClickHouseContainer _clickHouseContainer = null!;
     private static Neo4jContainer _neo4jContainer = null!;
+    private static MinioContainer _minioContainer = null!;
 #pragma warning restore NUnit1032
 }

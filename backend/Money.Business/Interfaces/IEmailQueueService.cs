@@ -3,6 +3,7 @@ namespace Money.Business.Interfaces;
 public interface IEmailQueueService
 {
     Task EnqueueAsync(MailMessage message);
+    Task EnqueueAsync(MailEnvelope envelope);
     Task<List<MailEnvelope>> DequeueBatchAsync(int count);
     Task EnqueueRetryAsync(MailEnvelope envelope);
     Task EnqueueDeadLetterAsync(MailEnvelope envelope);

@@ -244,7 +244,7 @@ public sealed partial class AccountsService(
         var body = $"Здравствуйте, {userName}!\r\nВаш код для подтверждения регистрации на сайте Филочек:\r\n{confirmCode}";
 
         // TODO: Стоит ли добавлять новое письмо, если уже есть в очереди письмо на тот же email
-        await emailQueueService.EnqueueAsync(new(email, Title, body));
+        await emailQueueService.EnqueueAsync(new MailMessage(email, Title, body));
     }
 
     // TODO Подумать над переносом в сервис

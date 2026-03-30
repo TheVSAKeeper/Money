@@ -2,6 +2,7 @@ namespace Money.Api.Services.Analytics;
 
 internal record OperationPayload(
     int UserId,
+    Guid AuthUserId,
     int OperationId,
     int CategoryId,
     string CategoryName,
@@ -14,6 +15,7 @@ internal record OperationPayload(
 
 internal record DebtPayload(
     int UserId,
+    Guid AuthUserId,
     int DebtId,
     string OwnerName,
     int TypeId,
@@ -26,6 +28,7 @@ internal record DebtPayload(
 
 internal record CategoryPayload(
     int UserId,
+    Guid AuthUserId,
     int CategoryId,
     string Name,
     int TypeId,

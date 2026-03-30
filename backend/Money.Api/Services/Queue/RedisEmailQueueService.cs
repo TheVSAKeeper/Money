@@ -28,10 +28,13 @@ public class RedisEmailQueueService(
     private readonly EmailSenderSettings _settings = options.Value;
     private readonly ConcurrentQueue<MailEnvelope> _fallback = new();
 
-    public async Task EnqueueAsync(MailMessage message)
+    public Task EnqueueAsync(MailMessage message)
     {
-        var envelope = new MailEnvelope { Message = message };
+        return EnqueueAsync(new MailEnvelope { Message = message });
+    }
 
+    public async Task EnqueueAsync(MailEnvelope envelope)
+    {
         try
         {
             var db = redis.GetDatabase();
@@ -40,7 +43,7 @@ public class RedisEmailQueueService(
         }
         catch (Exception ex) when (ex is RedisConnectionException or RedisTimeoutException)
         {
-            logger.LogWarning(ex, "Redis недоступен при постановке в очередь сообщения {MessageId}, используется fallback-буфер", message.Id);
+            logger.LogWarning(ex, "Redis недоступен при постановке в очередь сообщения {MessageId}, используется fallback-буфер", envelope.Message.Id);
             _fallback.Enqueue(envelope);
         }
     }

@@ -80,7 +80,7 @@ public class EmailSenderBackgroundService(
 
         foreach (var envelope in readyRetries)
         {
-            await emailQueueService.EnqueueAsync(envelope.Message);
+            await emailQueueService.EnqueueAsync(envelope);
         }
 
         if (readyRetries.Count > 0)
@@ -127,7 +127,7 @@ public class EmailSenderBackgroundService(
         }
         catch (Exception exception)
         {
-            logger.LogCritical(exception, "Критическая ошибка при обработке сообщения {MessageId}", envelope.Message.Id);
+            logger.LogError(exception, "Критическая ошибка при обработке сообщения {MessageId}", envelope.Message.Id);
             await HandleRetryAsync(envelope, exception);
         }
         finally

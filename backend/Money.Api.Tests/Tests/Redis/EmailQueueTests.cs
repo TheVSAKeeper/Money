@@ -36,7 +36,7 @@ public class EmailQueueTests
     {
         for (var i = 0; i < 100; i++)
         {
-            await _emailQueue.EnqueueAsync(new($"{i}@test.com", $"Msg {i}", "Body"));
+            await _emailQueue.EnqueueAsync(new MailMessage($"{i}@test.com", $"Msg {i}", "Body"));
         }
 
         var task1 = _emailQueue.DequeueBatchAsync(100);
@@ -70,9 +70,9 @@ public class EmailQueueTests
     [Test]
     public async Task EmailQueue_FIFO_Order()
     {
-        await _emailQueue.EnqueueAsync(new("a@test.com", "A", "Body"));
-        await _emailQueue.EnqueueAsync(new("b@test.com", "B", "Body"));
-        await _emailQueue.EnqueueAsync(new("c@test.com", "C", "Body"));
+        await _emailQueue.EnqueueAsync(new MailMessage("a@test.com", "A", "Body"));
+        await _emailQueue.EnqueueAsync(new MailMessage("b@test.com", "B", "Body"));
+        await _emailQueue.EnqueueAsync(new MailMessage("c@test.com", "C", "Body"));
 
         var batch = await _emailQueue.DequeueBatchAsync(3);
 
@@ -84,8 +84,8 @@ public class EmailQueueTests
     {
         Assert.That(await _emailQueue.GetQueueLengthAsync(), Is.Zero);
 
-        await _emailQueue.EnqueueAsync(new("a@test.com", "A", "Body"));
-        await _emailQueue.EnqueueAsync(new("b@test.com", "B", "Body"));
+        await _emailQueue.EnqueueAsync(new MailMessage("a@test.com", "A", "Body"));
+        await _emailQueue.EnqueueAsync(new MailMessage("b@test.com", "B", "Body"));
 
         Assert.That(await _emailQueue.GetQueueLengthAsync(), Is.EqualTo(2));
     }
@@ -93,7 +93,7 @@ public class EmailQueueTests
     [Test]
     public async Task EmailQueue_PeekQueue_DoesNotRemoveItems()
     {
-        await _emailQueue.EnqueueAsync(new("peek@test.com", "Peek", "Body"));
+        await _emailQueue.EnqueueAsync(new MailMessage("peek@test.com", "Peek", "Body"));
 
         var peeked = await _emailQueue.PeekQueueAsync(10);
         var lengthAfterPeek = await _emailQueue.GetQueueLengthAsync();
@@ -108,7 +108,7 @@ public class EmailQueueTests
     [Test]
     public async Task EmailQueue_PersistsAcrossServiceRecreation()
     {
-        await _emailQueue.EnqueueAsync(new("test@test.com", "Test", "Body"));
+        await _emailQueue.EnqueueAsync(new MailMessage("test@test.com", "Test", "Body"));
 
         var newEmailQueue = CreateNewServiceInstance();
         var messages = await newEmailQueue.DequeueBatchAsync(1);
